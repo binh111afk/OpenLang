@@ -68,7 +68,7 @@ function ProgressBar({ progress }: { progress: number }) {
 // ── Keyboard hint badge ────────────────────────────────────────────────────
 function KbdHint({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded-md bg-white/20 border border-white/30 text-white/80 text-xs font-mono leading-none">
+    <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-md bg-white/25 border border-white/35 text-white/90 text-[11px] font-mono leading-none backdrop-blur-sm">
       {children}
     </kbd>
   );
@@ -211,11 +211,12 @@ export function StudyPage() {
   }, [currentCard.word, handleNext, handlePrevious, playAudio]);
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-purple-950 overflow-hidden">
+    <div className="min-h-full w-full flex flex-col bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-purple-950 overflow-hidden">
+      <div className="w-full max-w-[1000px] mx-auto flex-1 min-h-0 flex flex-col px-5 lg:px-6 py-5 lg:py-6 gap-5 lg:gap-6">
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <div className="flex-none px-5 pt-4 pb-3">
-        <div className="max-w-4xl mx-auto flex items-center gap-3">
+      <div className="flex-none w-full pt-1">
+        <div className="w-full flex items-center gap-3">
           <button
             onClick={() => navigate('/library')}
             className="flex-none p-2.5 rounded-2xl bg-white dark:bg-gray-900 border-2 border-purple-200 dark:border-purple-800 hover:border-purple-400 dark:hover:border-purple-600 transition-all"
@@ -258,7 +259,7 @@ export function StudyPage() {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
-              <div className="max-w-4xl mx-auto mt-2 flex flex-wrap gap-3 px-1 py-2 rounded-2xl bg-purple-600/10 dark:bg-purple-800/20 border border-purple-200 dark:border-purple-800 text-xs text-gray-600 dark:text-gray-400">
+              <div className="w-full mt-3 flex flex-wrap gap-3 px-2 py-2.5 rounded-2xl bg-purple-600/10 dark:bg-purple-800/20 border border-purple-200 dark:border-purple-800 text-xs text-gray-600 dark:text-gray-400">
                 {[
                   { keys: ['Space'], desc: 'Phát âm từ' },
                   { keys: ['←'], desc: 'Trở lại' },
@@ -280,67 +281,64 @@ export function StudyPage() {
       </div>
 
       {/* ── Card Area ──────────────────────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center px-5 py-1 min-h-0">
-        <div className="w-full max-w-4xl h-full flex items-center">
+      <div className="flex-1 w-full flex items-center justify-center py-1 min-h-0">
+        <div className="w-full h-full flex items-center">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentCard.id}
-              initial={{ opacity: 0, x: 50, scale: 0.97 }}
+              initial={{ opacity: 0, x: 28, scale: 0.985 }}
               animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: -50, scale: 0.97 }}
-              transition={{ duration: 0.28, ease: 'easeInOut' }}
-              className="w-full bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 shadow-xl overflow-hidden"
+              exit={{ opacity: 0, x: -28, scale: 0.985 }}
+              transition={{ duration: 0.34, ease: [0.2, 0.8, 0.2, 1] }}
+              className="w-full bg-white/95 dark:bg-gray-900/95 rounded-3xl border border-purple-200/80 dark:border-purple-800 shadow-[0_26px_72px_-42px_rgba(88,28,135,0.45)] overflow-hidden min-h-[58vh] sm:min-h-[62vh] lg:min-h-[66vh] max-h-[74vh]"
             >
               {isFruitsDeck && currentCard.image ? (
-                /* ── Fruits: full-bleed image left + content right ── */
-                <div className="flex flex-col sm:flex-row">
-                  {/* Image — flush to left border, no padding */}
-                  <div className="sm:w-[42%] relative flex-none">
-                    <img
-                      src={currentCard.image}
-                      alt={currentCard.word}
-                      className="w-full h-52 sm:h-full object-cover"
-                      style={{ minHeight: '240px', maxHeight: '380px' }}
-                    />
-                    {/* Subtle right-side fade on desktop */}
-                    <div className="absolute inset-0 hidden sm:block bg-gradient-to-r from-transparent via-transparent to-white/30 dark:to-gray-900/50" />
-                    {/* Bottom fade on mobile */}
-                    <div className="absolute inset-0 sm:hidden bg-gradient-to-t from-white/50 dark:from-gray-900/60 to-transparent" />
+                /* ── Fruits: 40/60 image + content ── */
+                <div className="h-full min-h-[inherit] p-5 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-5">
+                  {/* Image */}
+                  <div className="md:col-span-2 min-h-56 md:min-h-full">
+                    <div className="h-full rounded-3xl overflow-hidden shadow-[0_10px_28px_-20px_rgba(15,23,42,0.35)] ring-1 ring-purple-200/70 dark:ring-purple-800/80">
+                      <img
+                        src={currentCard.image}
+                        alt={currentCard.word}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                   </div>
 
                   {/* Content */}
-                  <div className="flex-1 p-6 sm:p-7 flex flex-col justify-center gap-3.5">
+                  <div className="md:col-span-3 px-2 sm:px-3 md:px-4 py-2 flex flex-col justify-center gap-4">
                     {/* Word + audio */}
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-5xl font-bold text-gray-800 dark:text-gray-100 leading-tight" style={{ fontFamily: "'Inter', sans-serif" }}>
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="text-[3.1rem] sm:text-[3.4rem] font-black text-gray-800 dark:text-gray-100 leading-tight" style={{ fontFamily: "'Inter', sans-serif" }}>
                         {currentCard.word}
                       </h3>
                       <button
                         onClick={() => playAudio(currentCard.word)}
                         title="Phát âm từ (Space)"
-                        className="flex-none p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800 transition-all hover:scale-110 active:scale-95"
+                        className="flex-none p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800 transition-all hover:scale-105 active:scale-95"
                       >
                         <Volume2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                       </button>
                     </div>
 
-                    {/* Pronunciation — bolder, serif-style for IPA */}
-                    <p className="text-purple-600 dark:text-purple-300 font-semibold tracking-wide" style={{ fontFamily: "'Noto Sans', sans-serif" }}>
+                    {/* Pronunciation */}
+                    <p className="text-purple-500 dark:text-purple-300 font-semibold tracking-wide text-lg" style={{ fontFamily: "'Noto Sans', sans-serif" }}>
                       {currentCard.pronunciation}
                     </p>
 
                     <div className="w-10 h-0.5 bg-gradient-to-r from-purple-400 to-violet-400 rounded-full" />
 
                     {/* Meaning */}
-                    <div className="px-4 py-2.5 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-950 dark:to-violet-950 rounded-2xl">
-                      <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">{currentCard.meaning}</p>
-                    </div>
+                    <p className="text-[1.7rem] leading-tight font-bold text-purple-800 dark:text-purple-300">
+                      {currentCard.meaning}
+                    </p>
 
                     {/* Example */}
                     {currentCard.example && (
-                      <div className="px-4 py-3 bg-purple-50/80 dark:bg-purple-900/30 rounded-2xl border border-purple-200 dark:border-purple-700">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <p className="text-xs font-bold text-purple-500 dark:text-purple-400 uppercase tracking-wider">Ví dụ</p>
+                      <div className="px-4 py-3.5 bg-purple-50/90 dark:bg-purple-900/25 rounded-2xl border border-purple-200 dark:border-purple-700/80">
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <p className="text-xs font-semibold text-purple-500 dark:text-purple-400 tracking-wide">Ví dụ</p>
                           <button
                             onClick={() => playAudio(currentCard.example!)}
                             title="Phát âm câu ví dụ"
@@ -349,11 +347,11 @@ export function StudyPage() {
                             <Volume2 className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
                           </button>
                         </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-200 italic leading-relaxed">
+                        <p className="text-base text-gray-700 dark:text-gray-200 italic leading-7">
                           <HighlightedExample text={currentCard.example} keyword={currentCard.word} />
                         </p>
                         {currentCard.exampleTranslation && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 leading-relaxed">
+                          <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-2.5 leading-6">
                             {currentCard.exampleTranslation}
                           </p>
                         )}
@@ -363,7 +361,7 @@ export function StudyPage() {
                 </div>
               ) : (
                 /* ── Regular / Japanese: compact centered ── */
-                <div className="p-7 flex flex-col items-center gap-4">
+                <div className="h-full min-h-[inherit] p-8 sm:p-10 flex flex-col items-center justify-center gap-4">
                   <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg text-sm">
                     {currentCardIndex + 1}
                   </div>
@@ -439,10 +437,10 @@ export function StudyPage() {
       </div>
 
       {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <div className="flex-none px-5 pb-4 pt-2">
-        <div className="max-w-4xl mx-auto space-y-2.5">
+      <div className="flex-none w-full pb-1 pt-1">
+        <div className="w-full space-y-3">
           {/* Dots */}
-          <div className="flex justify-center gap-1.5 flex-wrap">
+          <div className="flex justify-center gap-1.5 flex-wrap pt-0.5">
             {deckData.cards.map((_, index) => (
               <button
                 key={index}
@@ -459,45 +457,45 @@ export function StudyPage() {
           </div>
 
           {/* Buttons */}
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
             <button
               onClick={handlePrevious}
               disabled={currentCardIndex === 0}
-              className={`px-5 py-3 rounded-2xl font-bold border-2 transition-all flex items-center gap-2 text-sm ${
+              className={`h-12 w-12 rounded-2xl border transition-all flex items-center justify-center ${
                 currentCardIndex === 0
                   ? 'opacity-40 cursor-not-allowed border-gray-200 dark:border-gray-700 text-gray-400'
-                  : 'border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950 hover:shadow-md active:scale-95'
+                  : 'border-purple-300 dark:border-purple-700 text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950 hover:shadow-sm active:scale-95'
               }`}
+              title="Trở lại"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Trở Lại</span>
-              <KbdHint>←</KbdHint>
             </button>
 
             <button
               onClick={handleNext}
-              className={`flex-1 py-3 px-5 rounded-2xl text-white font-bold transition-all flex items-center justify-center gap-2.5 group text-sm active:scale-95 ${
+              className={`flex-1 h-14 sm:h-[58px] px-6 rounded-2xl text-white font-extrabold text-base transition-all flex items-center justify-center gap-2.5 group hover:brightness-110 active:scale-95 ${
                 isLastCard
-                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 shadow-lg shadow-green-200/60 dark:shadow-green-900/40 hover:shadow-xl hover:brightness-105'
-                  : 'bg-gradient-to-r from-purple-600 to-violet-600 shadow-lg shadow-purple-200/60 dark:shadow-purple-900/40 hover:shadow-xl hover:brightness-105'
+                  ? 'bg-gradient-to-r from-green-500 to-emerald-500 shadow-lg shadow-green-200/60 dark:shadow-green-900/40 hover:shadow-xl'
+                  : 'bg-gradient-to-r from-purple-600 to-violet-600 shadow-lg shadow-purple-200/60 dark:shadow-purple-900/40 hover:shadow-xl'
               }`}
             >
               {isLastCard ? (
                 <>
-                  <CheckCircle className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                  <CheckCircle className="w-5 h-5 group-hover:scale-110 transition-transform" />
                   <span>Bắt Đầu Kiểm Tra</span>
                   <KbdHint>Enter</KbdHint>
                 </>
               ) : (
                 <>
                   <span>Tiếp Tục</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
                   <KbdHint>Enter</KbdHint>
                 </>
               )}
             </button>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );
