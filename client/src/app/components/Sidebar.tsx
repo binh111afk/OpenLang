@@ -1,6 +1,7 @@
 import { Home, Library, CreditCard, BarChart3, Languages, Settings, BookText, BookMarked, LogIn } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router';
+import { LayoutGroup, motion } from 'motion/react';
 import logoImage from '../../assets/6b7cb55c909914121ea017ad0c44450d479e791f.png';
 import { useUser } from '../contexts/UserContext';
 import { AuthModal } from './AuthModal';
@@ -28,7 +29,10 @@ export function Sidebar() {
     { icon: Settings, label: 'Cài Đặt', path: '/settings' },
   ];
 
-  const firstName = user ? (user.name.split(' ').pop() || user.name) : '';
+  const isPathActive = (path: string) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  };
 
   return (
     <>
@@ -43,30 +47,43 @@ export function Sidebar() {
         </div>
 
         {/* Nav */}
-        <nav className="flex flex-col gap-1.5 flex-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                title={item.label}
-                className={`
-                  flex items-center gap-4 px-4 py-3 rounded-2xl transition-all
-                  ${isActive
-                    ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-200 dark:shadow-purple-900'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-950 hover:text-purple-600 dark:hover:text-purple-400'
-                  }
-                  justify-center lg:justify-start
-                `}
-              >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                <span className="hidden lg:inline">{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <LayoutGroup>
+          <nav className="flex flex-col gap-1.5 flex-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = isPathActive(item.path);
+              return (
+                <motion.button
+                  key={item.path}
+                  onClick={() => navigate(item.path)}
+                  title={item.label}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`
+                    relative flex items-center gap-4 px-4 py-3 rounded-2xl overflow-hidden
+                    ${isActive
+                      ? 'text-white shadow-lg shadow-purple-200 dark:shadow-purple-900'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-purple-50 dark:hover:bg-purple-950 hover:text-purple-600 dark:hover:text-purple-400 transition-colors'
+                    }
+                    justify-center lg:justify-start
+                  `}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="sidebar-active"
+                      transition={{ type: 'spring', stiffness: 480, damping: 36, mass: 0.7 }}
+                      className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-600 to-purple-500"
+                    />
+                  )}
+                  <div className="relative z-10 flex items-center gap-4">
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="hidden lg:inline">{item.label}</span>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </nav>
+        </LayoutGroup>
 
         {/* ── Bottom box: User Profile OR Login Button ── */}
         {isLoggedIn && user ? (

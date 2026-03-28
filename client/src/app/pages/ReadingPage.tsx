@@ -30,6 +30,26 @@ interface ReadingArticle {
 const READING_PER_PAGE = 9;
 const READING_STORAGE_KEY = 'openlang-reading-state';
 
+const articleGridVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.35,
+      ease: [0.4, 0, 0.2, 1],
+      staggerChildren: 0.04,
+      delayChildren: 0.04,
+    },
+  },
+  exit: { opacity: 0, y: -10, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
+
+const articleCardVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] } },
+};
+
 type ReadingPersistedState = {
   page: number;
   topic: TopicType;
@@ -376,15 +396,18 @@ export function ReadingPage() {
             <AnimatePresence mode="wait">
               <motion.div
                 key={`${selectedTopic}-${selectedLevel}-${sortBy}-${searchQuery}-${safePage}`}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -12 }}
-                transition={{ duration: 0.22 }}
+                variants={articleGridVariants}
+                initial="hidden"
+                animate="show"
+                exit="exit"
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               >
                 {pagedArticles.map((article) => (
-                  <div
+                  <motion.div
                     key={article.id}
+                    variants={articleCardVariants}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => navigate(`/reading/${article.id}`)}
                     className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-6 shadow-sm hover:shadow-lg hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer group"
                   >
@@ -445,7 +468,7 @@ export function ReadingPage() {
                         <span>{formatDate(article.publishDate)}</span>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </motion.div>
             </AnimatePresence>

@@ -8,6 +8,25 @@ import { motion, AnimatePresence } from 'motion/react';
 
 const FLASHCARDS_PER_PAGE = 6;
 const FLASHCARDS_STORAGE_KEY = 'openlang-flashcards-state';
+const sessionGridVariants = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.35,
+      ease: [0.4, 0, 0.2, 1],
+      staggerChildren: 0.04,
+      delayChildren: 0.04,
+    },
+  },
+  exit: { opacity: 0, y: -10, transition: { duration: 0.25, ease: [0.4, 0, 0.2, 1] } },
+};
+
+const sessionCardVariants = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.4, 0, 0.2, 1] } },
+};
 
 function loadFlashcardsState(): { page: number } {
   try {
@@ -115,10 +134,14 @@ export function FlashcardsLandingPage() {
                 )}
               </p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors"
+            >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Tạo Phiên Mới</span>
-            </button>
+            </motion.button>
           </div>
 
           {sessions.length > 0 ? (
@@ -126,15 +149,18 @@ export function FlashcardsLandingPage() {
               <AnimatePresence mode="wait">
                 <motion.div
                   key={safePage}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -12 }}
-                  transition={{ duration: 0.22 }}
+                  variants={sessionGridVariants}
+                  initial="hidden"
+                  animate="show"
+                  exit="exit"
                   className="grid grid-cols-1 lg:grid-cols-2 gap-6"
                 >
                   {pagedSessions.map((session) => (
-                    <div
+                    <motion.div
                       key={session.id}
+                      variants={sessionCardVariants}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-8 hover:shadow-lg hover:border-purple-300 dark:hover:border-purple-700 transition-all"
                     >
                       <div className="flex items-start gap-4 mb-6">
@@ -166,14 +192,16 @@ export function FlashcardsLandingPage() {
                         </div>
                       </div>
 
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => navigate('/flashcards/study')}
                         className="w-full bg-gradient-to-r from-purple-600 to-purple-500 text-white py-4 rounded-2xl font-semibold hover:shadow-lg hover:shadow-purple-300 dark:hover:shadow-purple-900 transition-all flex items-center justify-center gap-2"
                       >
                         <Play className="w-5 h-5 fill-white" />
                         Bắt Đầu Học
-                      </button>
-                    </div>
+                      </motion.button>
+                    </motion.div>
                   ))}
                 </motion.div>
               </AnimatePresence>

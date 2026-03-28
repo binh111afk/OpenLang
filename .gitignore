@@ -1,6 +1,11 @@
 node_modules/
 dist/
+client/node_modules/
+client/dist/
+server/node_modules/
 .vite/
+client/.vite/
+server/dist/
 
 .env
 .env.*
