@@ -1,8 +1,8 @@
 {
   "version": 2,
   "framework": "vite",
-  "buildCommand": "npm --prefix client run build",
-  "outputDirectory": "client/dist",
+  "buildCommand": "if [ -f client/package.json ]; then npm --prefix client run build && rm -rf dist && cp -r client/dist dist; elif [ -f ../client/package.json ]; then npm --prefix ../client run build && rm -rf dist && cp -r ../client/dist dist; else echo 'Cannot find client/package.json' && exit 1; fi",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/api/(.*)",
