@@ -1,6 +1,6 @@
-const { spawnSync } = require("node:child_process");
-const { cpSync, existsSync, rmSync } = require("node:fs");
-const { resolve } = require("node:path");
+import { spawnSync } from "node:child_process";
+import { cpSync, existsSync, rmSync } from "node:fs";
+import { resolve } from "node:path";
 
 const cwd = process.cwd();
 const clientCandidates = [
