@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
+    "build": "echo \"No build step for openlang-server\"",
     "dev": "node index.js",
     "start": "node index.js"
   }
