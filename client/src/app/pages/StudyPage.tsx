@@ -4,6 +4,7 @@ import { Volume2, ArrowLeft, ArrowRight, CheckCircle, Keyboard } from 'lucide-re
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
+import LearningFlow from '../components/LearningFlow';
 
 interface VocabularyCard {
   id: string;
@@ -394,6 +395,54 @@ export function StudyPage() {
           >
             Quay về Thư Viện
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  const smartFlowVocabList = deckData.cards.map((card) => ({
+    word: card.word,
+    category: deckData.name,
+    level: 'Mixed',
+    ipa: card.pronunciation,
+    details: {
+      definition_vi: card.meaning,
+      example_en: card.example || '',
+      example_vi: card.exampleTranslation || '',
+      synonyms: [],
+    },
+  }));
+
+  const useSmartFlow = deckData.language === 'english';
+
+  if (useSmartFlow) {
+    return (
+      <div className="min-h-full w-full flex flex-col bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-purple-950 overflow-hidden">
+        <div className="w-full max-w-[1000px] mx-auto flex-1 px-5 lg:px-6 py-5 lg:py-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/library')}
+              className="flex-none p-2.5 rounded-2xl bg-white dark:bg-gray-900 border-2 border-purple-200 dark:border-purple-800 hover:border-purple-400 dark:hover:border-purple-600 transition-all"
+            >
+              <ArrowLeft className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+            </button>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                {deckData.emoji ? (
+                  <span className="text-lg leading-none">{deckData.emoji}</span>
+                ) : null}
+                <h1 className="font-bold text-gray-800 dark:text-gray-100 truncate">
+                  {deckData.name}
+                </h1>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Smart learning flow: hoc theo the, mini quiz moi 5 tu, final test cuoi buoi.
+              </p>
+            </div>
+          </div>
+
+          <LearningFlow vocabList={smartFlowVocabList} />
         </div>
       </div>
     );
