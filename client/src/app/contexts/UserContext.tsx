@@ -120,28 +120,7 @@ async function upsertProfile(
 }
 
 async function hydrateUser(authUser: SupabaseUser): Promise<UserData> {
-  let profile = await getProfileById(authUser.id);
-
-  if (!profile) {
-    const email = authUser.email || '';
-    const usernameFromMeta =
-      typeof authUser.user_metadata?.username === 'string'
-        ? authUser.user_metadata.username
-        : '';
-    const fullNameFromMeta =
-      typeof authUser.user_metadata?.full_name === 'string'
-        ? authUser.user_metadata.full_name
-        : '';
-
-    await upsertProfile(authUser.id, {
-      username: normalizeUsername(usernameFromMeta || (email.includes('@') ? email.split('@')[0] : 'user')),
-      full_name: fullNameFromMeta || usernameFromMeta || email,
-      goal: 15,
-    });
-
-    profile = await getProfileById(authUser.id);
-  }
-
+  const profile = await getProfileById(authUser.id);
   return mapUser(authUser, profile);
 }
 

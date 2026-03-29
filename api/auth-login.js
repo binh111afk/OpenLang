@@ -79,6 +79,28 @@ module.exports = async (req, res) => {
       return sendJson(res, 401, { error: 'Tên đăng nhập hoặc mật khẩu không đúng.' });
     }
 
+    const fullNameFromMeta =
+      typeof signInData.user.user_metadata?.full_name === 'string'
+        ? signInData.user.user_metadata.full_name
+        : null;
+
+    const { error: ensureProfileError } = await adminClient
+      .from('profiles')
+      .upsert(
+        {
+          id: signInData.user.id,
+          username,
+          full_name: fullNameFromMeta || username,
+          goal: 15,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' },
+      );
+
+    if (ensureProfileError) {
+      return sendJson(res, 500, { error: ensureProfileError.message });
+    }
+
     return sendJson(res, 200, {
       session: {
         access_token: signInData.session.access_token,
