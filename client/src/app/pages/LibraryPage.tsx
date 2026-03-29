@@ -8,6 +8,7 @@ import { Pagination } from '../components/Pagination';
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
+import { buildApiUrl } from '@/utils/api';
 
 type FilterType = 'all' | 'english' | 'japanese' | 'favorites';
 
@@ -17,11 +18,22 @@ interface Deck {
   wordCount: number;
   progress: number;
   language: 'english' | 'japanese';
-  icon: string;
   isFavorite: boolean;
   coverImage?: string;
-  source?: 'local' | 'supabase';
+  difficultyRating?: number | null;
+  source?: 'local' | 'supabase' | 'api';
   category?: string;
+}
+
+interface ApiDeckResponse {
+  id: string;
+  name: string;
+  language: 'english' | 'japanese';
+  description?: string | null;
+  cover_image?: string | null;
+  is_favorite?: boolean;
+  difficulty_rating?: number | null;
+  card_count?: number;
 }
 
 interface VocabularyDetails {
@@ -111,49 +123,42 @@ function getSupabaseDeckMeta(category: string) {
     case 'animals':
       return {
         name: 'Động Vật',
-        icon: '🐾',
         coverImage:
           'https://images.unsplash.com/photo-1474511320723-9a56873867b5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
       };
     case 'tech':
       return {
         name: 'Công Nghệ',
-        icon: '💻',
         coverImage:
           'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
       };
     case 'psychology':
       return {
         name: 'Tâm Lý Học',
-        icon: '🧠',
         coverImage:
           'https://images.unsplash.com/photo-1491841550275-ad7854e35ca6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
       };
     case 'student life':
       return {
         name: 'Đời Sống Sinh Viên',
-        icon: '🎓',
         coverImage:
           'https://images.unsplash.com/photo-1523240795612-9a054b0db644?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
       };
     case 'law':
       return {
         name: 'Luật',
-        icon: '⚖️',
         coverImage:
           'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
       };
     case 'gaming':
       return {
         name: 'Gaming',
-        icon: '🎮',
         coverImage:
           'https://images.unsplash.com/photo-1511512578047-dfb367046420?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
       };
     default:
       return {
         name: category,
-        icon: '📘',
         coverImage:
           'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
       };
@@ -388,68 +393,110 @@ export function LibraryPage() {
     error: vocabularyError,
   } = useSupabaseVocabulary();
 
-  const [myDecks, setMyDecks] = useState<Deck[]>([
+  const seedDecks: Deck[] = [
     {
       id: 'openlang-academic',
-      name: 'OpenLang Tech, Mindset & Campus',
-      wordCount: vocabularySeed.length, progress: 12, language: 'english', icon: '🧠', isFavorite: true, source: 'local',
+      name: 'OpenLang Tech, Mindset & Campus', difficultyRating: 4,
+      wordCount: vocabularySeed.length, progress: 12, language: 'english', isFavorite: true, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
     },
     {
-      id: 'fruits',
-      name: 'Trái Cây',
-      wordCount: 8, progress: 0, language: 'english', icon: '🍎', isFavorite: false, source: 'local',
+      id: 'fruits', difficultyRating: 2,
+      name: 'Trái Cây', wordCount: 8, progress: 0, language: 'english', isFavorite: false, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1623815242959-fb20354f9b8d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmcmVzaCUyMHJlZCUyMGFwcGxlJTIwZnJ1aXR8ZW58MXx8fHwxNzc0NjY1MTAzfDA&ixlib=rb-4.1.0&q=80&w=400',
     },
     {
-      id: '1',
-      name: 'JLPT N5 Kanji Cơ Bản',
-      wordCount: 80, progress: 65, language: 'japanese', icon: '📚', isFavorite: true, source: 'local',
+      id: '1', difficultyRating: 3,
+      name: 'JLPT N5 Kanji Cơ Bản', wordCount: 80, progress: 65, language: 'japanese', isFavorite: true, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1720702214757-c57fb7ba2b93?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxqYXBhbmVzZSUyMGthbmppJTIwY2FsbGlncmFwaHklMjBwYXBlcnxlbnwxfHx8fDE3NzQ2NjU0NzV8MA&ixlib=rb-4.1.0&q=80&w=400',
     },
     {
-      id: '2',
-      name: 'Tiếng Anh Giao Tiếp',
-      wordCount: 150, progress: 42, language: 'english', icon: '🇬🇧', isFavorite: false, source: 'local',
+      id: '2', difficultyRating: 2,
+      name: 'Tiếng Anh Giao Tiếp', wordCount: 150, progress: 42, language: 'english', isFavorite: false, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1673515336677-ef1cf9e20ea1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbmdsaXNoJTIwc3BlYWtpbmclMjBwcmFjdGljZSUyMGNvbW11bmljYXRpb258ZW58MXx8fHwxNzc0NjY1NDgyfDA&ixlib=rb-4.1.0&q=80&w=400',
     },
     {
-      id: '3',
-      name: 'JLPT N4 Từ Vựng',
-      wordCount: 120, progress: 28, language: 'japanese', icon: '📚', isFavorite: true, source: 'local',
+      id: '3', difficultyRating: 3,
+      name: 'JLPT N4 Từ Vựng', wordCount: 120, progress: 28, language: 'japanese', isFavorite: true, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1555111359-851254288029?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxqYXBhbmVzZSUyMHZvY2FidWxhcnklMjBzdHVkeSUyMGRlc2t8ZW58MXx8fHwxNzc0NjY1NDc2fDA&ixlib=rb-4.1.0&q=80&w=400',
     },
     {
-      id: '4',
-      name: 'English Business Vocabulary',
-      wordCount: 200, progress: 15, language: 'english', icon: '🇬🇧', isFavorite: false, source: 'local',
+      id: '4', difficultyRating: 4,
+      name: 'English Business Vocabulary', wordCount: 200, progress: 15, language: 'english', isFavorite: false, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1750768145390-f0ad18d3e65b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxidXNpbmVzcyUyMGVuZ2xpc2glMjBvZmZpY2UlMjBtZWV0aW5nfGVufDF8fHx8MTc3NDY2NTQ3N3ww&ixlib=rb-4.1.0&q=80&w=400',
     },
     {
-      id: '5',
-      name: 'Động Từ Tiếng Nhật Thường Gặp',
-      wordCount: 95, progress: 80, language: 'japanese', icon: '📚', isFavorite: false, source: 'local',
+      id: '5', difficultyRating: 4,
+      name: 'Động Từ Tiếng Nhật Thường Gặp', wordCount: 95, progress: 80, language: 'japanese', isFavorite: false, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1698510273393-a6302f3c90e5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxqYXBhbmVzZSUyMHZlcmIlMjB3cml0aW5nJTIwYnJ1c2h8ZW58MXx8fHwxNzc0NjY1NDc4fDA&ixlib=rb-4.1.0&q=80&w=400',
     },
     {
-      id: '6',
-      name: 'IELTS Essential Words',
-      wordCount: 250, progress: 35, language: 'english', icon: '🇬🇧', isFavorite: true, source: 'local',
+      id: '6', difficultyRating: 5,
+      name: 'IELTS Essential Words', wordCount: 250, progress: 35, language: 'english', isFavorite: true, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1731983568664-9c1d8a87e7a2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxJRUxUUyUyMGV4YW0lMjBzdHVkeSUyMGJvb2tzfGVufDF8fHx8MTc3NDY2NTQ3OHww&ixlib=rb-4.1.0&q=80&w=400',
     },
     {
-      id: '7',
-      name: 'Từ Vựng Nhật Bản N5 Cơ Bản',
-      wordCount: 100, progress: 50, language: 'japanese', icon: '📚', isFavorite: false, source: 'local',
+      id: '7', difficultyRating: 2,
+      name: 'Từ Vựng Nhật Bản N5 Cơ Bản', wordCount: 100, progress: 50, language: 'japanese', isFavorite: false, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1548893792-14b7f9c8b794?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
     },
     {
-      id: '8',
-      name: 'English Idioms & Phrases',
-      wordCount: 180, progress: 22, language: 'english', icon: '🇬🇧', isFavorite: false, source: 'local',
+      id: '8', difficultyRating: 4,
+      name: 'English Idioms & Phrases', wordCount: 180, progress: 22, language: 'english', isFavorite: false, source: 'local',
       coverImage: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
     },
-  ]);
+  ];
+  const [myDecks, setMyDecks] = useState<Deck[]>(seedDecks);
+  const [apiLoading, setApiLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchCustomDecks() {
+      setApiLoading(true);
+
+      try {
+        const response = await fetch(buildApiUrl('/api/library'));
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || 'Không thể tải bộ thẻ từ Supabase.');
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        const remoteDecks: Deck[] = ((payload.decks || []) as ApiDeckResponse[]).map((deck) => ({
+          id: deck.id,
+          name: deck.name,
+          wordCount: deck.card_count || 0,
+          progress: 0,
+          language: deck.language,
+          isFavorite: Boolean(deck.is_favorite),
+          coverImage: deck.cover_image || undefined,
+          difficultyRating: deck.difficulty_rating ?? null,
+          source: 'api',
+        }));
+
+        setMyDecks([...seedDecks, ...remoteDecks]);
+      } catch {
+        if (isMounted) {
+          setMyDecks(seedDecks);
+        }
+      } finally {
+        if (isMounted) {
+          setApiLoading(false);
+        }
+      }
+    }
+
+    void fetchCustomDecks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const communityDecks = [
     { id: 'c1', name: 'JLPT N3 Vocabulary Master', wordCount: 180, users: 1250, language: 'japanese', trending: true },
@@ -491,8 +538,8 @@ export function LibraryPage() {
       wordCount: items.length,
       progress: 0,
       language: 'english',
-      icon: meta.icon,
       isFavorite: false,
+      difficultyRating: null,
       source: 'supabase',
       category,
       coverImage: meta.coverImage,
@@ -532,6 +579,9 @@ export function LibraryPage() {
         <div className="space-y-2">
           <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Thư Viện Của Tôi</h1>
           <p className="text-gray-600 dark:text-gray-400">Quản lý và học tập với các bộ thẻ của bạn</p>
+          {apiLoading ? (
+            <p className="text-sm text-purple-500 dark:text-purple-400">Đang đồng bộ bộ thẻ từ Supabase...</p>
+          ) : null}
         </div>
 
         {/* Search Bar & Add Button */}
@@ -605,12 +655,15 @@ export function LibraryPage() {
                           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                         />
                       ) : (
-                        <div className={`w-full h-full flex items-center justify-center text-5xl ${
-                          deck.language === 'japanese'
-                            ? 'bg-gradient-to-br from-purple-400 to-purple-600'
-                            : 'bg-gradient-to-br from-violet-400 to-violet-600'
-                        }`}>
-                          {deck.icon}
+                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-100 via-violet-50 to-white px-6 text-center dark:from-purple-950 dark:via-violet-950 dark:to-gray-900">
+                          <div>
+                            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 shadow-sm dark:bg-gray-900/80">
+                              <BookOpen className="h-7 w-7 text-purple-600 dark:text-purple-300" />
+                            </div>
+                            <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                              {deck.name}
+                            </p>
+                          </div>
                         </div>
                       )}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
@@ -629,7 +682,7 @@ export function LibraryPage() {
                           {deck.source !== 'supabase' ? (
                             <DeckMenu
                               onEdit={() => navigate('/decks/add-cards', {
-                                state: { deckName: deck.name, language: deck.language, deckIcon: deck.icon, deckId: deck.id, mode: 'edit' }
+                                state: { deckName: deck.name, language: deck.language, deckCoverImage: deck.coverImage, deckId: deck.id, deckRating: deck.difficultyRating, mode: 'edit' }
                               })}
                               onDelete={() => setDeletingDeck(deck)}
                             />
@@ -644,6 +697,25 @@ export function LibraryPage() {
                     {/* Card Body */}
                     <div className="p-5 flex flex-col flex-1 gap-3">
                       <p className="text-sm text-gray-500 dark:text-gray-400">{deck.wordCount} từ vựng</p>
+                      {deck.difficultyRating ? (
+                        <div className="flex items-center gap-2 text-sm text-amber-500">
+                          <div className="flex items-center gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`h-4 w-4 ${
+                                  star <= deck.difficultyRating
+                                    ? 'fill-amber-400 text-amber-400'
+                                    : 'text-gray-300 dark:text-gray-600'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="font-medium text-gray-500 dark:text-gray-400">
+                            {deck.difficultyRating}/5
+                          </span>
+                        </div>
+                      ) : null}
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-gray-500 dark:text-gray-400 font-medium">Tiến độ</span>
@@ -760,18 +832,50 @@ export function LibraryPage() {
       <CreateDeckModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onCreateDeck={(deckData: DeckData) => {
-          const newDeck: Deck = {
-            id: Date.now().toString(),
-            name: deckData.name,
-            wordCount: 0,
-            progress: 0,
-            language: deckData.language,
-            icon: deckData.icon,
-            isFavorite: false,
-            source: 'local',
-          };
-          setMyDecks([...myDecks, newDeck]);
+        onCreateDeck={async (deckData: DeckData) => {
+          try {
+            const response = await fetch(buildApiUrl('/api/library'), {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                name: deckData.name,
+                language: deckData.language,
+                coverImage: deckData.coverImage,
+                difficultyRating: deckData.rating,
+              }),
+            });
+            const payload = await response.json();
+
+            if (!response.ok) {
+              throw new Error(payload.error || 'Không thể tạo bộ thẻ mới.');
+            }
+
+            const createdDeck = payload.deck;
+            const newDeck: Deck = {
+              id: createdDeck.id,
+              name: createdDeck.name,
+              wordCount: 0,
+              progress: 0,
+              language: createdDeck.language,
+              isFavorite: Boolean(createdDeck.is_favorite),
+              source: 'api',
+              coverImage: createdDeck.cover_image || deckData.coverImage,
+              difficultyRating: createdDeck.difficulty_rating ?? deckData.rating,
+            };
+
+            setMyDecks((prev) => [...prev, newDeck]);
+            return {
+              id: newDeck.id,
+              coverImage: newDeck.coverImage,
+            };
+          } catch (error) {
+            alert(
+              error instanceof Error ? error.message : 'Không thể tạo bộ thẻ mới.',
+            );
+            return null;
+          }
         }}
       />
 
@@ -780,9 +884,24 @@ export function LibraryPage() {
         {deletingDeck && (
           <DeleteConfirmDialog
             deckName={deletingDeck.name}
-            onConfirm={() => {
-              setMyDecks(prev => prev.filter(d => d.id !== deletingDeck.id));
-              setDeletingDeck(null);
+            onConfirm={async () => {
+              try {
+                if (deletingDeck.source === 'api') {
+                  const response = await fetch(`${buildApiUrl('/api/library')}?id=${encodeURIComponent(deletingDeck.id)}`, {
+                    method: 'DELETE',
+                  });
+                  const payload = await response.json();
+
+                  if (!response.ok) {
+                    throw new Error(payload.error || 'Không thể xóa bộ thẻ.');
+                  }
+                }
+
+                setMyDecks(prev => prev.filter(d => d.id !== deletingDeck.id));
+                setDeletingDeck(null);
+              } catch (error) {
+                alert(error instanceof Error ? error.message : 'Không thể xóa bộ thẻ.');
+              }
             }}
             onCancel={() => setDeletingDeck(null)}
           />

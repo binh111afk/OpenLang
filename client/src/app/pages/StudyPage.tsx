@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, CheckCircle, Keyboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
+import { buildApiUrl } from '@/utils/api';
 import LearningFlow from '../components/LearningFlow';
 import { PronounceButton } from '../components/PronounceButton';
 
@@ -25,6 +26,26 @@ interface DeckConfig {
   emoji?: string;
   language: 'english' | 'japanese';
   cards: VocabularyCard[];
+}
+
+interface ApiDeckPayload {
+  id: string;
+  name: string;
+  language: 'english' | 'japanese';
+}
+
+interface ApiFlashcardPayload {
+  id: string;
+  front: {
+    word: string;
+    furigana?: string;
+  };
+  back: {
+    meaning: string;
+    example: string;
+    exampleTranslation: string;
+  };
+  imageUrl?: string;
 }
 
 interface SeedVocabularyItem {
@@ -223,6 +244,19 @@ function decodeSupabaseCategory(deckId: string) {
   }
 }
 
+const BUILT_IN_DECK_IDS = new Set([
+  '1',
+  '2',
+  '3',
+  '4',
+  '5',
+  '6',
+  '7',
+  '8',
+  'fruits',
+  'openlang-academic',
+]);
+
 // ── Main component ─────────────────────────────────────────────────────────
 export function StudyPage() {
   const navigate = useNavigate();
@@ -232,8 +266,14 @@ export function StudyPage() {
   const [supabaseDeck, setSupabaseDeck] = useState<DeckConfig | null>(null);
   const [supabaseLoading, setSupabaseLoading] = useState(false);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
+  const [customDeck, setCustomDeck] = useState<DeckConfig | null>(null);
   const [keyboardPressed, setKeyboardPressed] = useState(false);
   const supabaseCategory = decodeSupabaseCategory(deckId || '');
+  const shouldLoadCustomDeck = Boolean(
+    deckId &&
+      !supabaseCategory &&
+      !BUILT_IN_DECK_IDS.has(deckId),
+  );
 
   useEffect(() => {
     setCurrentCardIndex(0);
@@ -311,7 +351,83 @@ export function StudyPage() {
     };
   }, [deckId, supabaseCategory]);
 
-  const deckData = supabaseDeck ?? getDeckById(deckId || '1');
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCustomDeck() {
+      if (!shouldLoadCustomDeck || !deckId) {
+        setCustomDeck(null);
+        return;
+      }
+
+      setSupabaseLoading(true);
+      setSupabaseError(null);
+
+      try {
+        const [deckResponse, cardsResponse] = await Promise.all([
+          fetch(buildApiUrl('/api/library')),
+          fetch(`${buildApiUrl('/api/flashcards')}?deckId=${encodeURIComponent(deckId)}`),
+        ]);
+
+        const deckPayload = await deckResponse.json();
+        const cardsPayload = await cardsResponse.json();
+
+        if (!deckResponse.ok) {
+          throw new Error(deckPayload.error || 'Không thể tải bộ thẻ.');
+        }
+
+        if (!cardsResponse.ok) {
+          throw new Error(cardsPayload.error || 'Không thể tải danh sách thẻ.');
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        const deckMeta = ((deckPayload.decks || []) as ApiDeckPayload[]).find(
+          (deck) => deck.id === deckId,
+        );
+
+        setCustomDeck({
+          id: deckId,
+          name: deckMeta?.name || 'Bộ thẻ của bạn',
+          language: deckMeta?.language || 'english',
+          cards: ((cardsPayload.cards || []) as ApiFlashcardPayload[]).map((card) => ({
+            id: card.id,
+            word: card.front.word,
+            furigana: card.front.furigana,
+            pronunciation: card.front.furigana || '',
+            meaning: card.back.meaning,
+            example: card.back.example || '',
+            exampleTranslation: card.back.exampleTranslation || '',
+            language: (deckMeta?.language || 'english') as 'english' | 'japanese',
+            image: card.imageUrl,
+          })),
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setSupabaseError(
+          error instanceof Error ? error.message : 'Failed to load custom deck.',
+        );
+        setCustomDeck(null);
+      } finally {
+        if (isMounted) {
+          setSupabaseLoading(false);
+        }
+      }
+    }
+
+    void loadCustomDeck();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [deckId, shouldLoadCustomDeck]);
+
+  const deckData = customDeck ?? supabaseDeck ?? getDeckById(deckId || '1');
   const currentCard = deckData.cards[currentCardIndex] ?? deckData.cards[0];
   const progress = ((currentCardIndex + 1) / deckData.cards.length) * 100;
   const isLastCard = currentCardIndex === deckData.cards.length - 1;
