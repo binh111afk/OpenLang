@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router';
-import { Volume2, ArrowLeft, ArrowRight, CheckCircle, Keyboard } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Keyboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
 import LearningFlow from '../components/LearningFlow';
+import { PronounceButton } from '../components/PronounceButton';
 
 interface VocabularyCard {
   id: string;
@@ -36,6 +37,8 @@ interface SeedVocabularyItem {
     example_en: string;
     example_vi: string;
     synonyms: string[];
+    image_url?: string;
+    image_large_url?: string;
   };
 }
 
@@ -49,6 +52,8 @@ interface SupabaseVocabularyItem {
     example_en: string;
     example_vi: string;
     synonyms: string[];
+    image_url?: string;
+    image_large_url?: string;
   };
 }
 
@@ -196,6 +201,7 @@ const OPENLANG_ACADEMIC_DECK: DeckConfig = {
     example: item.details.example_en,
     exampleTranslation: item.details.example_vi,
     language: 'english',
+    image: item.details.image_url || item.details.image_large_url,
   })),
 };
 
@@ -226,6 +232,7 @@ export function StudyPage() {
   const [supabaseDeck, setSupabaseDeck] = useState<DeckConfig | null>(null);
   const [supabaseLoading, setSupabaseLoading] = useState(false);
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
+  const [keyboardPressed, setKeyboardPressed] = useState(false);
   const supabaseCategory = decodeSupabaseCategory(deckId || '');
 
   useEffect(() => {
@@ -278,6 +285,7 @@ export function StudyPage() {
             example: item.details.example_en,
             exampleTranslation: item.details.example_vi,
             language: 'english',
+            image: item.details.image_url || item.details.image_large_url,
           })),
         });
       } catch (error) {
@@ -309,15 +317,6 @@ export function StudyPage() {
   const isLastCard = currentCardIndex === deckData.cards.length - 1;
   const isFruitsDeck = deckId === 'fruits';
 
-  const playAudio = useCallback((text: string) => {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = deckData.language === 'japanese' ? 'ja-JP' : 'en-US';
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [deckData.language]);
-
   const handleNext = useCallback(() => {
     if (isLastCard) {
       if (supabaseCategory) {
@@ -333,6 +332,11 @@ export function StudyPage() {
     if (currentCardIndex > 0) setCurrentCardIndex((p) => p - 1);
   }, [currentCardIndex]);
 
+  const triggerKeyboardPress = useCallback(() => {
+    setKeyboardPressed(true);
+    window.setTimeout(() => setKeyboardPressed(false), 130);
+  }, []);
+
   // ── Keyboard shortcuts ──────────────────────────────────────────────────
   useEffect(() => {
     if (!currentCard) {
@@ -342,11 +346,9 @@ export function StudyPage() {
     const handler = (e: KeyboardEvent) => {
       // Ignore if focus is inside an input
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === ' ' || e.code === 'Space') {
+      if (e.key === 'ArrowRight' || e.key === 'Enter') {
         e.preventDefault();
-        playAudio(currentCard.word);
-      } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
-        e.preventDefault();
+        triggerKeyboardPress();
         handleNext();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
@@ -355,7 +357,7 @@ export function StudyPage() {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [currentCard, handleNext, handlePrevious, playAudio]);
+  }, [currentCard, handleNext, handlePrevious, triggerKeyboardPress]);
 
   if (supabaseLoading) {
     return (
@@ -410,6 +412,7 @@ export function StudyPage() {
       example_en: card.example || '',
       example_vi: card.exampleTranslation || '',
       synonyms: [],
+      image_url: card.image,
     },
   }));
 
@@ -437,7 +440,7 @@ export function StudyPage() {
                 </h1>
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Smart learning flow: hoc theo the, mini quiz moi 5 tu, final test cuoi buoi.
+                Smart learning flow: học theo thẻ, mini quiz mỗi 5 từ, final test cuối buổi.
               </p>
             </div>
           </div>
@@ -532,32 +535,40 @@ export function StudyPage() {
             >
               {isFruitsDeck && currentCard.image ? (
                 /* ── Fruits: 40/60 image + content ── */
-                <div className="h-full min-h-[inherit] p-5 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-5">
-                  {/* Image */}
-                  <div className="md:col-span-2 min-h-56 md:min-h-full">
-                    <div className="h-full rounded-3xl overflow-hidden shadow-[0_10px_28px_-20px_rgba(15,23,42,0.35)] ring-1 ring-purple-200/70 dark:ring-purple-800/80">
-                      <img
-                        src={currentCard.image}
-                        alt={currentCard.word}
-                        className="w-full h-full object-cover"
-                      />
+                <div className="h-full min-h-[inherit] p-6 sm:p-7 lg:p-8 flex flex-col gap-6">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-stretch">
+                    {/* Image */}
+                    <div className="lg:w-[45%] lg:flex-none">
+                      <div className="relative aspect-[4/3] rounded-3xl overflow-hidden bg-slate-50 shadow-sm ring-1 ring-purple-200/70 dark:bg-slate-900 dark:ring-purple-800/80">
+                        <img
+                          src={currentCard.image}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 h-full w-full scale-125 object-cover opacity-50 blur-xl"
+                        />
+                        <div className="absolute inset-0 bg-white/18 dark:bg-gray-900/18" />
+                        <div className="relative z-[1] flex h-full w-full items-center justify-center p-4 sm:p-5">
+                          <img
+                            src={currentCard.image}
+                            alt={currentCard.word}
+                            className="h-full w-full rounded-[20px] object-contain shadow-sm"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Content */}
-                  <div className="md:col-span-3 px-2 sm:px-3 md:px-4 py-2 flex flex-col justify-center gap-4">
+                    {/* Content */}
+                    <div className="flex flex-1 flex-col justify-center gap-5 p-2 sm:p-4 lg:p-8">
                     {/* Word + audio */}
                     <div className="flex items-center gap-2.5">
-                      <h3 className="text-[3.1rem] sm:text-[3.4rem] font-black text-gray-800 dark:text-gray-100 leading-tight" style={{ fontFamily: "'Inter', sans-serif" }}>
+                      <h3 className="text-5xl font-black leading-tight text-purple-800 dark:text-purple-300" style={{ fontFamily: "'Inter', sans-serif" }}>
                         {currentCard.word}
                       </h3>
-                      <button
-                        onClick={() => playAudio(currentCard.word)}
-                        title="Phát âm từ (Space)"
-                        className="flex-none p-2.5 rounded-xl bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800 transition-all hover:scale-105 active:scale-95"
-                      >
-                        <Volume2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                      </button>
+                      <PronounceButton
+                        text={currentCard.word}
+                        lang={deckData.language === 'japanese' ? 'ja-JP' : 'en-US'}
+                        label="Phát âm từ"
+                      />
                     </div>
 
                     {/* Pronunciation */}
@@ -565,37 +576,42 @@ export function StudyPage() {
                       {currentCard.pronunciation}
                     </p>
 
-                    <div className="w-10 h-0.5 bg-gradient-to-r from-purple-400 to-violet-400 rounded-full" />
+                    <div className="w-10 h-0.5 bg-purple-500 rounded-full" />
 
                     {/* Meaning */}
-                    <p className="text-[1.7rem] leading-tight font-bold text-purple-800 dark:text-purple-300">
-                      {currentCard.meaning}
-                    </p>
+                    <div className="rounded-2xl border border-purple-100 bg-purple-50/90 px-5 py-4 text-center dark:border-purple-900 dark:bg-purple-950/60">
+                      <p className="text-[1.9rem] leading-tight font-bold text-gray-800 dark:text-gray-100">
+                        {currentCard.meaning}
+                      </p>
+                    </div>
+                    </div>
+                  </div>
 
-                    {/* Example */}
-                    {currentCard.example && (
-                      <div className="px-4 py-3.5 bg-purple-50/90 dark:bg-purple-900/25 rounded-2xl border border-purple-200 dark:border-purple-700/80">
-                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                          <p className="text-xs font-semibold text-purple-500 dark:text-purple-400 tracking-wide">Ví dụ</p>
-                          <button
-                            onClick={() => playAudio(currentCard.example!)}
-                            title="Phát âm câu ví dụ"
-                            className="flex-none p-1 rounded-lg bg-purple-100 dark:bg-purple-800 hover:bg-purple-200 dark:hover:bg-purple-700 transition-all"
-                          >
-                            <Volume2 className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
-                          </button>
+                  {/* Example */}
+                  {currentCard.example && (
+                    <>
+                      <div className="mx-auto mt-2 w-[72%] border-t border-purple-100 dark:border-purple-900/70" />
+                      <div className="mx-auto mt-3 w-[80%] rounded-2xl bg-purple-50/50 px-6 py-5 text-center dark:bg-purple-950/25">
+                        <div className="mb-1.5 flex items-center justify-center gap-2">
+                          <p className="text-sm font-semibold text-purple-500 dark:text-purple-400 tracking-wide">Ví dụ</p>
+                          <PronounceButton
+                            text={currentCard.example!}
+                            lang={deckData.language === 'japanese' ? 'ja-JP' : 'en-US'}
+                            label="Phát âm câu ví dụ"
+                            className="p-1.5 rounded-lg"
+                          />
                         </div>
-                        <p className="text-base text-gray-700 dark:text-gray-200 italic leading-7">
+                        <p className="text-lg font-semibold italic leading-7 text-gray-700 dark:text-gray-200">
                           <HighlightedExample text={currentCard.example} keyword={currentCard.word} />
                         </p>
                         {currentCard.exampleTranslation && (
-                          <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-2.5 leading-6">
+                          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
                             {currentCard.exampleTranslation}
                           </p>
                         )}
                       </div>
-                    )}
-                  </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 /* ── Regular / Japanese: compact centered ── */
@@ -622,13 +638,11 @@ export function StudyPage() {
                         {currentCard.word}
                       </h3>
                     </div>
-                    <button
-                      onClick={() => playAudio(currentCard.word)}
-                      title="Phát âm từ (Space)"
-                      className="flex-none p-3 rounded-xl bg-purple-100 dark:bg-purple-900 hover:bg-purple-200 dark:hover:bg-purple-800 transition-all hover:scale-110 active:scale-95"
-                    >
-                      <Volume2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    </button>
+                    <PronounceButton
+                      text={currentCard.word}
+                      lang={deckData.language === 'japanese' ? 'ja-JP' : 'en-US'}
+                      label="Phát âm từ"
+                    />
                   </div>
 
                   {/* Pronunciation */}
@@ -648,13 +662,12 @@ export function StudyPage() {
                     <div className="w-full px-5 py-3.5 bg-purple-50/80 dark:bg-purple-900/30 rounded-2xl border border-purple-200 dark:border-purple-700">
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <p className="text-xs font-bold text-purple-500 dark:text-purple-400 uppercase tracking-wider">Ví dụ</p>
-                        <button
-                          onClick={() => playAudio(currentCard.example!)}
-                          title="Phát âm câu ví dụ"
-                          className="flex-none p-1 rounded-lg bg-purple-100 dark:bg-purple-800 hover:bg-purple-200 dark:hover:bg-purple-700 transition-all"
-                        >
-                          <Volume2 className="w-3.5 h-3.5 text-purple-500 dark:text-purple-400" />
-                        </button>
+                        <PronounceButton
+                          text={currentCard.example!}
+                          lang={deckData.language === 'japanese' ? 'ja-JP' : 'en-US'}
+                          label="Phát âm câu ví dụ"
+                          className="p-1.5 rounded-lg"
+                        />
                       </div>
                       <p className="text-base text-gray-700 dark:text-gray-200 italic text-center leading-relaxed"
                         style={{ fontFamily: currentCard.language === 'japanese' ? "'Noto Sans JP', sans-serif" : 'inherit' }}>
@@ -715,7 +728,7 @@ export function StudyPage() {
                 isLastCard
                   ? 'bg-gradient-to-r from-green-500 to-emerald-500 shadow-lg shadow-green-200/60 dark:shadow-green-900/40 hover:shadow-xl'
                   : 'bg-gradient-to-r from-purple-600 to-violet-600 shadow-lg shadow-purple-200/60 dark:shadow-purple-900/40 hover:shadow-xl'
-              }`}
+              } ${keyboardPressed ? 'scale-95' : ''}`}
             >
               {isLastCard ? (
                 <>

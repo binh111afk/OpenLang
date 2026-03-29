@@ -11,6 +11,13 @@
     "build": "npm --prefix client run build",
     "dev:client": "npm --prefix client run dev",
     "build:client": "npm --prefix client run build",
-    "dev:server": "npm --prefix server run dev"
+    "dev:server": "npm --prefix server run dev",
+    "sync:vocab-images": "node scripts/sync-pixabay-images.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.100.1",
+    "axios": "^1.11.0",
+    "dotenv": "^17.2.2",
+    "p-limit": "^6.2.0"
   }
 }
