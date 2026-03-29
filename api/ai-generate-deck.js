@@ -1,4 +1,4 @@
-const { generateGeminiJson } = require('./_lib/gemini');
+const { generateAIJson } = require('./_lib/gemini');
 const { allowMethods, readJsonBody, sendJson, withCors } = require('./_lib/http');
 
 function buildPrompt({ topic, language, cardCount, difficultyRating }) {
@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
       return sendJson(res, 400, { error: validationError });
     }
 
-    const result = await generateGeminiJson(
+    const { provider, result } = await generateAIJson(
       buildPrompt({
         topic: payload.topic,
         language: payload.language,
@@ -75,7 +75,10 @@ module.exports = async (req, res) => {
       }),
     );
 
-    return sendJson(res, 200, result);
+    return sendJson(res, 200, {
+      ...result,
+      provider,
+    });
   } catch (error) {
     return sendJson(res, 500, {
       error: error instanceof Error ? error.message : 'Unknown AI generation error.',
