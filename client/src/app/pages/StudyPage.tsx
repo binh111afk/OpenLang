@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { Volume2, ArrowLeft, ArrowRight, CheckCircle, Keyboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
+import { createSupabaseBrowserClient } from '@/utils/supabase/client';
 
 interface VocabularyCard {
   id: string;
@@ -25,6 +26,19 @@ interface DeckConfig {
 }
 
 interface SeedVocabularyItem {
+  word: string;
+  category: string;
+  level: string;
+  ipa: string;
+  details: {
+    definition_vi: string;
+    example_en: string;
+    example_vi: string;
+    synonyms: string[];
+  };
+}
+
+interface SupabaseVocabularyItem {
   word: string;
   category: string;
   level: string;
@@ -190,14 +204,149 @@ function getDeckById(id: string): DeckConfig {
   return { ...DEFAULT_DECK, id };
 }
 
+function decodeSupabaseCategory(deckId: string) {
+  if (!deckId.startsWith('supabase--')) {
+    return null;
+  }
+
+  try {
+    return decodeURIComponent(deckId.replace('supabase--', ''));
+  } catch {
+    return null;
+  }
+}
+
 // ── Main component ─────────────────────────────────────────────────────────
 export function StudyPage() {
   const navigate = useNavigate();
   const { deckId } = useParams();
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showHotkeys, setShowHotkeys] = useState(false);
+  const [supabaseDeck, setSupabaseDeck] = useState<DeckConfig | null>(null);
+  const [supabaseLoading, setSupabaseLoading] = useState(false);
+  const [supabaseError, setSupabaseError] = useState<string | null>(null);
+  const supabaseCategory = decodeSupabaseCategory(deckId || '');
 
-  const deckData = getDeckById(deckId || '1');
+  useEffect(() => {
+    setCurrentCardIndex(0);
+  }, [deckId]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSupabaseDeck() {
+      if (!supabaseCategory) {
+        setSupabaseDeck(null);
+        setSupabaseError(null);
+        setSupabaseLoading(false);
+        return;
+      }
+
+      setSupabaseLoading(true);
+      setSupabaseError(null);
+
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data, error } = await supabase
+          .from('vocabulary')
+          .select('word, category, level, ipa, details')
+          .eq('category', supabaseCategory)
+          .order('word', { ascending: true });
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (error) {
+          setSupabaseError(error.message);
+          setSupabaseDeck(null);
+          return;
+        }
+
+        const items = (data as SupabaseVocabularyItem[]) ?? [];
+        setSupabaseDeck({
+          id: deckId || 'supabase',
+          name: supabaseCategory === 'Animals' ? 'Động Vật' : supabaseCategory,
+          emoji: supabaseCategory === 'Animals' ? '🐾' : '📘',
+          language: 'english',
+          cards: items.map((item, index) => ({
+            id: `${supabaseCategory}-${index + 1}`,
+            word: item.word,
+            pronunciation: item.ipa,
+            meaning: item.details.definition_vi,
+            example: item.details.example_en,
+            exampleTranslation: item.details.example_vi,
+            language: 'english',
+          })),
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setSupabaseError(
+          error instanceof Error ? error.message : 'Failed to load deck.',
+        );
+        setSupabaseDeck(null);
+      } finally {
+        if (isMounted) {
+          setSupabaseLoading(false);
+        }
+      }
+    }
+
+    void loadSupabaseDeck();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [deckId, supabaseCategory]);
+
+  const deckData = supabaseDeck ?? getDeckById(deckId || '1');
+
+  if (supabaseLoading) {
+    return (
+      <div className="min-h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-purple-950">
+        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-purple-200 dark:border-purple-800 px-8 py-6 text-gray-600 dark:text-gray-300">
+          Đang tải bộ thẻ từ Supabase...
+        </div>
+      </div>
+    );
+  }
+
+  if (supabaseError) {
+    return (
+      <div className="min-h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-purple-950 p-6">
+        <div className="max-w-lg bg-white dark:bg-gray-900 rounded-3xl border border-red-200 dark:border-red-800 px-8 py-6 text-center space-y-4">
+          <p className="text-lg font-semibold text-red-600 dark:text-red-400">Không thể tải bộ thẻ Supabase</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{supabaseError}</p>
+          <button
+            onClick={() => navigate('/library')}
+            className="px-5 py-3 rounded-2xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
+          >
+            Quay về Thư Viện
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!deckData.cards.length) {
+    return (
+      <div className="min-h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-violet-50 dark:from-gray-950 dark:via-gray-900 dark:to-purple-950 p-6">
+        <div className="max-w-lg bg-white dark:bg-gray-900 rounded-3xl border border-purple-200 dark:border-purple-800 px-8 py-6 text-center space-y-4">
+          <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">Bộ thẻ này chưa có từ vựng</p>
+          <button
+            onClick={() => navigate('/library')}
+            className="px-5 py-3 rounded-2xl bg-purple-600 text-white font-semibold hover:bg-purple-700 transition-colors"
+          >
+            Quay về Thư Viện
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const currentCard = deckData.cards[currentCardIndex];
   const progress = ((currentCardIndex + 1) / deckData.cards.length) * 100;
   const isLastCard = currentCardIndex === deckData.cards.length - 1;
@@ -213,9 +362,15 @@ export function StudyPage() {
   }, [deckData.language]);
 
   const handleNext = useCallback(() => {
-    if (isLastCard) navigate(`/library/${deckId}/quiz`);
+    if (isLastCard) {
+      if (supabaseCategory) {
+        navigate('/library');
+      } else {
+        navigate(`/library/${deckId}/quiz`);
+      }
+    }
     else setCurrentCardIndex((p) => p + 1);
-  }, [isLastCard, navigate, deckId]);
+  }, [isLastCard, navigate, deckId, supabaseCategory]);
 
   const handlePrevious = useCallback(() => {
     if (currentCardIndex > 0) setCurrentCardIndex((p) => p - 1);
