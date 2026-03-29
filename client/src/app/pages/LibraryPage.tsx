@@ -7,6 +7,8 @@ import { CreateDeckModal, DeckData } from '../components/CreateDeckModal';
 import { Pagination } from '../components/Pagination';
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
+import { VocabularyCard } from '../components/VocabularyCard';
+import { createSupabaseBrowserClient } from '@/utils/supabase/client';
 
 type FilterType = 'all' | 'english' | 'japanese' | 'favorites';
 
@@ -21,8 +23,24 @@ interface Deck {
   coverImage?: string;
 }
 
+interface VocabularyDetails {
+  definition_vi: string;
+  example_en: string;
+  example_vi: string;
+  synonyms: string[];
+}
+
+interface VocabularyItem {
+  word: string;
+  category: string;
+  level: string;
+  ipa: string;
+  details: VocabularyDetails;
+}
+
 const CARDS_PER_PAGE = 6;
 const STORAGE_KEY = 'openlang-library-state';
+const VOCABULARY_CATEGORIES = ['All', 'Tech', 'Psychology', 'Student Life'];
 
 function loadPersistedState(): { page: number; filter: FilterType; search: string } {
   try {
@@ -30,6 +48,68 @@ function loadPersistedState(): { page: number; filter: FilterType; search: strin
     if (raw) return JSON.parse(raw);
   } catch { /* ignore */ }
   return { page: 1, filter: 'all', search: '' };
+}
+
+function useVocabularyByCategory(selectedCategory: string) {
+  const [vocabularies, setVocabularies] = useState<VocabularyItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function fetchVocabulary() {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const supabase = createSupabaseBrowserClient();
+        let query = supabase
+          .from('vocabulary')
+          .select('word, category, level, ipa, details')
+          .order('word', { ascending: true });
+
+        if (selectedCategory !== 'All') {
+          query = query.eq('category', selectedCategory);
+        }
+
+        const { data, error } = await query;
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (error) {
+          setError(error.message);
+          setVocabularies([]);
+          return;
+        }
+
+        setVocabularies((data as VocabularyItem[]) ?? []);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setError(
+          error instanceof Error ? error.message : 'Failed to fetch vocabulary.',
+        );
+        setVocabularies([]);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void fetchVocabulary();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCategory]);
+
+  return { vocabularies, loading, error };
 }
 
 // ── Draggable horizontal carousel ────────────────────────────────────────
@@ -250,10 +330,16 @@ export function LibraryPage() {
   const [currentPage, setCurrentPage] = useState(persisted.page);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingDeck, setDeletingDeck] = useState<Deck | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const { learningLanguages } = useLanguage();
   const navigate = useNavigate();
   const prevFilterRef = useRef(persisted.filter);
   const prevSearchRef = useRef(persisted.search);
+  const {
+    vocabularies,
+    loading: vocabularyLoading,
+    error: vocabularyError,
+  } = useVocabularyByCategory(selectedCategory);
 
   const [myDecks, setMyDecks] = useState<Deck[]>([
     {
@@ -364,6 +450,7 @@ export function LibraryPage() {
   const pagedDecks = filteredDecks.slice((safePage - 1) * CARDS_PER_PAGE, safePage * CARDS_PER_PAGE);
 
   const filteredCommunity = communityDecks.filter(d => learningLanguages.includes(d.language as 'english' | 'japanese'));
+  const visibleVocabulary = vocabularies.slice(0, 6);
 
   return (
     <AnimatedPage>
@@ -538,6 +625,69 @@ export function LibraryPage() {
         )}
 
         {/* Community Recommendations */}
+        <div className="space-y-6 pt-8 border-t-2 border-purple-100 dark:border-purple-900">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Từ Vựng Từ Supabase</h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Dữ liệu được lấy trực tiếp từ bảng <code>vocabulary</code>.
+              </p>
+            </div>
+
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              {VOCABULARY_CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`px-5 py-2.5 rounded-2xl font-semibold transition-all whitespace-nowrap ${
+                    selectedCategory === category
+                      ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-200 dark:shadow-purple-900'
+                      : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-2 border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {vocabularyLoading ? (
+            <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-8 text-center text-gray-500 dark:text-gray-400">
+              Đang tải từ vựng...
+            </div>
+          ) : null}
+
+          {vocabularyError ? (
+            <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-red-200 dark:border-red-800 p-8 text-center text-red-600 dark:text-red-400">
+              Lỗi tải dữ liệu: {vocabularyError}
+            </div>
+          ) : null}
+
+          {!vocabularyLoading && !vocabularyError && visibleVocabulary.length === 0 ? (
+            <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-8 text-center text-gray-500 dark:text-gray-400">
+              Chưa có từ vựng cho chủ đề này.
+            </div>
+          ) : null}
+
+          {!vocabularyLoading && !vocabularyError && visibleVocabulary.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {visibleVocabulary.map((item) => (
+                <VocabularyCard
+                  key={`${item.category}-${item.word}`}
+                  word={item.word}
+                  pronunciation={item.ipa}
+                  meaning={item.details.definition_vi}
+                  example={item.details.example_en}
+                  exampleTranslation={item.details.example_vi}
+                  level={item.level}
+                  category={item.category}
+                  language="english"
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
+
         <div className="space-y-6 pt-8 border-t-2 border-purple-100 dark:border-purple-900">
           <div className="flex items-center justify-between">
             <div>

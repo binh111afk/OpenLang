@@ -5,11 +5,22 @@ interface VocabularyCardProps {
   pronunciation?: string;
   meaning: string;
   example?: string;
+  exampleTranslation?: string;
   level?: string;
+  category?: string;
   language: 'english' | 'japanese';
 }
 
-export function VocabularyCard({ word, pronunciation, meaning, example, level, language }: VocabularyCardProps) {
+export function VocabularyCard({
+  word,
+  pronunciation,
+  meaning,
+  example,
+  exampleTranslation,
+  level,
+  category,
+  language,
+}: VocabularyCardProps) {
   const isJapanese = language === 'japanese';
   
   return (
@@ -47,12 +58,20 @@ export function VocabularyCard({ word, pronunciation, meaning, example, level, l
         {example && (
           <p className="text-sm text-gray-500 dark:text-gray-400 italic">{example}</p>
         )}
+        {exampleTranslation && (
+          <p className="text-xs text-gray-400 dark:text-gray-500">{exampleTranslation}</p>
+        )}
       </div>
 
-      <div className="mt-4 pt-4 border-t border-purple-100 dark:border-purple-800 flex gap-2">
+      <div className="mt-4 pt-4 border-t border-purple-100 dark:border-purple-800 flex gap-2 flex-wrap">
         <span className="px-3 py-1 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-full">
           {isJapanese ? 'JLPT N5' : (level || 'Cơ Bản')}
         </span>
+        {category && (
+          <span className="px-3 py-1 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-full">
+            {category}
+          </span>
+        )}
         <span className="px-3 py-1 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-full">
           {isJapanese ? '日本語' : 'English'}
         </span>
