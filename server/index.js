@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 import { URL } from "node:url";
 
 const require = createRequire(import.meta.url);
+const aiGenerateDeckHandler = require("../api/ai-generate-deck.js");
+const aiSuggestCardHandler = require("../api/ai-suggest-card.js");
 const flashcardsHandler = require("../api/flashcards.js");
 const flashcardImagesHandler = require("../api/flashcard-images.js");
 const libraryHandler = require("../api/library.js");
@@ -22,6 +24,14 @@ const server = http.createServer((req, res) => {
     return flashcardsHandler(req, res);
   }
 
+  if (requestUrl.pathname === "/api/ai-generate-deck") {
+    return aiGenerateDeckHandler(req, res);
+  }
+
+  if (requestUrl.pathname === "/api/ai-suggest-card") {
+    return aiSuggestCardHandler(req, res);
+  }
+
   if (requestUrl.pathname === "/api/flashcard-images") {
     return flashcardImagesHandler(req, res);
   }
@@ -34,7 +44,7 @@ const server = http.createServer((req, res) => {
     message: "OpenLang server is running",
     method: req.method,
     url: req.url,
-    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images"],
+    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images", "/api/ai-generate-deck", "/api/ai-suggest-card"],
   });
 });
 

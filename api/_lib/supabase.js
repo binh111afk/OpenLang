@@ -1,4 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
+const { loadEnvFiles } = require('./env');
+
+loadEnvFiles();
 
 function getSupabaseServerEnv() {
   const supabaseUrl =

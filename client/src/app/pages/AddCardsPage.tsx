@@ -127,33 +127,36 @@ export function AddCardsPage() {
 
     setIsAiLoading(true);
 
-    setTimeout(() => {
-      if (isJapanese) {
-        if (front === '勉強') {
-          setFurigana('べんきょう');
-          setBack('Học tập, nghiên cứu');
-          setExample('毎日日本語を勉強します。');
-          setExampleTranslation('Tôi học tiếng Nhật mỗi ngày.');
-        } else {
-          setFurigana('れい');
-          setBack('Ví dụ, mẫu');
-          setExample('これは例です。');
-          setExampleTranslation('Đây là một ví dụ.');
-        }
-      } else {
-        if (front.toLowerCase() === 'study') {
-          setBack('Học tập, nghiên cứu');
-          setExample('I study English every day.');
-          setExampleTranslation('Tôi học tiếng Anh mỗi ngày.');
-        } else {
-          setBack('Ví dụ nghĩa');
-          setExample('This is an example sentence.');
-          setExampleTranslation('Đây là một câu ví dụ.');
-        }
-      }
-
-      setIsAiLoading(false);
-    }, 1200);
+    fetchJson<{
+      card: {
+        frontWord: string;
+        frontFurigana?: string;
+        backMeaning: string;
+        example: string;
+        exampleTranslation: string;
+      };
+    }>('/api/ai-suggest-card', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        frontWord: front.trim(),
+        language: state.language,
+      }),
+    })
+      .then((payload) => {
+        setFurigana(payload.card.frontFurigana || '');
+        setBack(payload.card.backMeaning || '');
+        setExample(payload.card.example || '');
+        setExampleTranslation(payload.card.exampleTranslation || '');
+      })
+      .catch((error) => {
+        alert(error instanceof Error ? error.message : 'Không thể lấy gợi ý từ AI.');
+      })
+      .finally(() => {
+        setIsAiLoading(false);
+      });
   };
 
   const clearForm = () => {

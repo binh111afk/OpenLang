@@ -4,11 +4,13 @@ import { useNavigate } from 'react-router';
 import { useLanguage } from '../contexts/LanguageContext';
 import { AnimatedPage } from '../components/AnimatedPage';
 import { CreateDeckModal, DeckData } from '../components/CreateDeckModal';
+import { AIDeckGeneratorModal } from '../components/AIDeckGeneratorModal';
 import { Pagination } from '../components/Pagination';
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
 import { fetchJson } from '@/utils/api';
+import { createDeckWithAI } from '@/utils/aiDeck';
 
 type FilterType = 'all' | 'english' | 'japanese' | 'favorites';
 
@@ -382,6 +384,7 @@ export function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState(persisted.search);
   const [currentPage, setCurrentPage] = useState(persisted.page);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
   const [deletingDeck, setDeletingDeck] = useState<Deck | null>(null);
   const { learningLanguages } = useLanguage();
   const navigate = useNavigate();
@@ -597,6 +600,13 @@ export function LibraryPage() {
           >
             <Plus className="w-5 h-5" />
             Thêm Bộ Thẻ Mới
+          </button>
+          <button
+            className="bg-white dark:bg-gray-900 text-purple-700 dark:text-purple-300 px-6 py-4 rounded-2xl border-2 border-purple-200 dark:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950 transition-all flex items-center justify-center gap-2 font-semibold whitespace-nowrap"
+            onClick={() => setIsAIModalOpen(true)}
+          >
+            <TrendingUp className="w-5 h-5" />
+            Tạo Bằng AI
           </button>
         </div>
 
@@ -865,6 +875,28 @@ export function LibraryPage() {
               error instanceof Error ? error.message : 'Không thể tạo bộ thẻ mới.',
             );
             return null;
+          }
+        }}
+      />
+
+      <AIDeckGeneratorModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
+        onGenerate={async (payload) => {
+          try {
+            const created = await createDeckWithAI(payload);
+            navigate('/decks/add-cards', {
+              state: {
+                deckName: created.deckName,
+                language: created.language,
+                deckCoverImage: created.deckCoverImage,
+                deckRating: created.deckRating,
+                deckId: created.deckId,
+                mode: 'edit',
+              },
+            });
+          } catch (error) {
+            alert(error instanceof Error ? error.message : 'Không thể tạo bộ thẻ bằng AI.');
           }
         }}
       />

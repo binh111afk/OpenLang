@@ -5,6 +5,8 @@ import { AnimatedPage } from '../components/AnimatedPage';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Pagination } from '../components/Pagination';
 import { motion, AnimatePresence } from 'motion/react';
+import { AIDeckGeneratorModal } from '../components/AIDeckGeneratorModal';
+import { createDeckWithAI } from '@/utils/aiDeck';
 
 const FLASHCARDS_PER_PAGE = 6;
 const FLASHCARDS_STORAGE_KEY = 'openlang-flashcards-state';
@@ -42,6 +44,7 @@ export function FlashcardsLandingPage() {
 
   const persisted = loadFlashcardsState();
   const [currentPage, setCurrentPage] = useState(persisted.page);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
   const allSessions = [
     { id: 1,  name: 'JLPT N5 Kanji Cơ Bản',              cardsTotal: 80,  cardsNew: 12, cardsReview: 15, language: 'japanese', color: 'from-purple-500 to-purple-600' },
@@ -137,10 +140,11 @@ export function FlashcardsLandingPage() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              onClick={() => setIsAIModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Tạo Phiên Mới</span>
+              <span className="hidden sm:inline">Tạo Bằng AI</span>
             </motion.button>
           </div>
 
@@ -250,6 +254,29 @@ export function FlashcardsLandingPage() {
         {/* Bottom Spacing */}
         <div className="h-8"></div>
       </div>
+
+      <AIDeckGeneratorModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
+        defaultLanguage={learningLanguages.includes('english') ? 'english' : 'japanese'}
+        onGenerate={async (payload) => {
+          try {
+            const created = await createDeckWithAI(payload);
+            navigate('/decks/add-cards', {
+              state: {
+                deckName: created.deckName,
+                language: created.language,
+                deckCoverImage: created.deckCoverImage,
+                deckRating: created.deckRating,
+                deckId: created.deckId,
+                mode: 'edit',
+              },
+            });
+          } catch (error) {
+            alert(error instanceof Error ? error.message : 'Không thể tạo bộ thẻ bằng AI.');
+          }
+        }}
+      />
     </AnimatedPage>
   );
 }
