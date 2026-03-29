@@ -2,6 +2,7 @@ import { createContext, useContext, useState, ReactNode, useCallback, useEffect 
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import avatarImage from '../../assets/41f329b57dbad6c9a42f2a8cb17808ac046f48c9.png';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
+import { fetchJson } from '@/utils/api';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 export interface UserData {
@@ -17,6 +18,13 @@ interface AuthResult {
   ok: boolean;
   error?: string;
   name?: string;
+}
+
+interface UsernameLoginPayload {
+  session: {
+    access_token: string;
+    refresh_token: string;
+  };
 }
 
 interface ProfileRow {
@@ -224,35 +232,41 @@ export function UserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (identifier: string, password: string): Promise<AuthResult> => {
-    const normalizedIdentifier = identifier.trim();
+    const username = normalizeUsername(identifier);
 
-    if (!normalizedIdentifier.includes('@')) {
-      return {
-        ok: false,
-        error: 'Vui lòng dùng email để đăng nhập (username dùng cho hồ sơ hiển thị).',
-      };
-    }
-
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email: normalizedIdentifier,
-      password,
-    });
-
-    if (error || !data.user) {
-      return { ok: false, error: error?.message || 'Đăng nhập thất bại.' };
+    if (!username || !password) {
+      return { ok: false, error: 'Vui lòng nhập đầy đủ thông tin.' };
     }
 
     try {
-      const hydrated = await hydrateUser(data.user);
+      const payload = await fetchJson<UsernameLoginPayload>('/api/auth-login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const { data: setSessionData, error: setSessionError } = await supabase.auth.setSession({
+        access_token: payload.session.access_token,
+        refresh_token: payload.session.refresh_token,
+      });
+
+      if (setSessionError || !setSessionData.user) {
+        return {
+          ok: false,
+          error: setSessionError?.message || 'Không thể tạo phiên đăng nhập.',
+        };
+      }
+
+      const hydrated = await hydrateUser(setSessionData.user);
       setUserState(hydrated);
       return { ok: true, name: hydrated.name };
-    } catch (hydrateError) {
-      const fallback = mapUser(data.user, null);
-      setUserState(fallback);
+
+    } catch (error) {
       return {
-        ok: true,
-        name: fallback.name,
-        error: hydrateError instanceof Error ? hydrateError.message : undefined,
+        ok: false,
+        error: error instanceof Error ? error.message : 'Đăng nhập thất bại.',
       };
     }
   }, []);

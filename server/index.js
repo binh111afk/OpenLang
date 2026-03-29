@@ -9,6 +9,7 @@ const flashcardsHandler = require("../api/flashcards.js");
 const flashcardImagesHandler = require("../api/flashcard-images.js");
 const libraryHandler = require("../api/library.js");
 const userProgressHandler = require("../api/user-progress.js");
+const authLoginHandler = require("../api/auth-login.js");
 
 const port = process.env.PORT || 3001;
 
@@ -45,11 +46,15 @@ const server = http.createServer((req, res) => {
     return userProgressHandler(req, res);
   }
 
+  if (requestUrl.pathname === "/api/auth-login") {
+    return authLoginHandler(req, res);
+  }
+
   return sendJson(res, 200, {
     message: "OpenLang server is running",
     method: req.method,
     url: req.url,
-    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images", "/api/user-progress", "/api/ai-generate-deck", "/api/ai-suggest-card"],
+    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images", "/api/user-progress", "/api/auth-login", "/api/ai-generate-deck", "/api/ai-suggest-card"],
   });
 });
 

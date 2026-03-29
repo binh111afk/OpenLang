@@ -167,16 +167,16 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       <form onSubmit={handleLogin} className="space-y-4">
                         {/* Username */}
                         <div className="space-y-1.5">
-                          <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Email</label>
+                          <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tên đăng nhập</label>
                           <div className="relative">
                             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
-                              type="email"
+                              type="text"
                               value={loginUsername}
                               onChange={e => setLoginUsername(e.target.value)}
-                              placeholder="email@example.com"
+                              placeholder="Nhập tên đăng nhập"
                               className="w-full pl-11 pr-4 py-3 rounded-2xl border-2 border-purple-100 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/30 focus:border-purple-400 dark:focus:border-purple-600 focus:outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
-                              autoComplete="email"
+                              autoComplete="username"
                             />
                           </div>
                         </div>
