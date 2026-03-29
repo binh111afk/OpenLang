@@ -15,6 +15,7 @@ import { StudyPage } from "./pages/StudyPage";
 import { QuizPage } from "./pages/QuizPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { ErrorPage } from "./pages/ErrorPage";
+import { DebugDbPage } from "./pages/DebugDbPage";
 
 export const router = createBrowserRouter([
   {
@@ -73,6 +74,10 @@ export const router = createBrowserRouter([
       {
         path: "settings",
         Component: SettingsPage,
+      },
+      {
+        path: "debug-db",
+        Component: DebugDbPage,
       },
       {
         path: "*",
