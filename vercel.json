@@ -2,11 +2,6 @@
   "version": 2,
   "buildCommand": "node ./scripts/vercel-build.js",
   "outputDirectory": "dist",
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "routes": [
     {
       "handle": "filesystem"
