@@ -2,7 +2,7 @@ import { X, Mic, Sparkles, Plus, Trash2, Pencil, Save, Image as ImageIcon, Loade
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
-import { buildApiUrl } from '@/utils/api';
+import { fetchJson } from '@/utils/api';
 
 interface Card {
   id: string;
@@ -80,12 +80,9 @@ export function AddCardsPage() {
       setIsPageLoading(true);
 
       try {
-        const response = await fetch(`${buildApiUrl('/api/flashcards')}?deckId=${encodeURIComponent(state.deckId)}`);
-        const payload = await response.json();
-
-        if (!response.ok) {
-          throw new Error(payload.error || 'Không thể tải danh sách thẻ.');
-        }
+        const payload = await fetchJson<{ cards?: FlashcardApiItem[] }>(
+          `/api/flashcards?deckId=${encodeURIComponent(state.deckId)}`,
+        );
 
         if (!isMounted) {
           return;
@@ -245,34 +242,23 @@ export function AddCardsPage() {
         imageUrl: card.imageUrl || null,
       };
 
-      const response = await fetch(buildApiUrl('/api/flashcards'), {
+      await fetchJson<{ card: FlashcardApiItem }>('/api/flashcards', {
         method: card.persisted ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(card.persisted ? { id: card.id, ...payload } : payload),
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || `Không thể lưu thẻ "${card.front}".`);
-      }
     }
 
     for (const deletedId of deletedIds) {
-      const response = await fetch(buildApiUrl('/api/flashcards'), {
+      await fetchJson<{ success: boolean }>('/api/flashcards', {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ id: deletedId }),
       });
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Không thể xóa thẻ cũ.');
-      }
     }
   };
 
@@ -281,19 +267,13 @@ export function AddCardsPage() {
       return;
     }
 
-    const response = await fetch(buildApiUrl('/api/flashcard-images'), {
+    await fetchJson<{ results: unknown[] }>('/api/flashcard-images', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ deckId: state.deckId }),
     });
-
-    const payload = await response.json();
-
-    if (!response.ok) {
-      throw new Error(payload.error || 'Không thể lấy ảnh minh họa từ Pixabay.');
-    }
   };
 
   const handleFinish = async () => {

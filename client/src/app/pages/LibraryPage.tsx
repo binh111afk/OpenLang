@@ -8,7 +8,7 @@ import { Pagination } from '../components/Pagination';
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
-import { buildApiUrl } from '@/utils/api';
+import { fetchJson } from '@/utils/api';
 
 type FilterType = 'all' | 'english' | 'japanese' | 'favorites';
 
@@ -456,12 +456,7 @@ export function LibraryPage() {
       setApiLoading(true);
 
       try {
-        const response = await fetch(buildApiUrl('/api/library'));
-        const payload = await response.json();
-
-        if (!response.ok) {
-          throw new Error(payload.error || 'Không thể tải bộ thẻ từ Supabase.');
-        }
+        const payload = await fetchJson<{ decks?: ApiDeckResponse[] }>('/api/library');
 
         if (!isMounted) {
           return;
@@ -834,7 +829,7 @@ export function LibraryPage() {
         onClose={() => setIsModalOpen(false)}
         onCreateDeck={async (deckData: DeckData) => {
           try {
-            const response = await fetch(buildApiUrl('/api/library'), {
+            const payload = await fetchJson<{ deck: ApiDeckResponse & { cover_image?: string; difficulty_rating?: number | null; is_favorite?: boolean } }>('/api/library', {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -846,11 +841,6 @@ export function LibraryPage() {
                 difficultyRating: deckData.rating,
               }),
             });
-            const payload = await response.json();
-
-            if (!response.ok) {
-              throw new Error(payload.error || 'Không thể tạo bộ thẻ mới.');
-            }
 
             const createdDeck = payload.deck;
             const newDeck: Deck = {
@@ -887,14 +877,9 @@ export function LibraryPage() {
             onConfirm={async () => {
               try {
                 if (deletingDeck.source === 'api') {
-                  const response = await fetch(`${buildApiUrl('/api/library')}?id=${encodeURIComponent(deletingDeck.id)}`, {
+                  await fetchJson<{ success: boolean }>(`/api/library?id=${encodeURIComponent(deletingDeck.id)}`, {
                     method: 'DELETE',
                   });
-                  const payload = await response.json();
-
-                  if (!response.ok) {
-                    throw new Error(payload.error || 'Không thể xóa bộ thẻ.');
-                  }
                 }
 
                 setMyDecks(prev => prev.filter(d => d.id !== deletingDeck.id));

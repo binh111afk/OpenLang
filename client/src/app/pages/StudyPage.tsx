@@ -4,7 +4,7 @@ import { ArrowLeft, ArrowRight, CheckCircle, Keyboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
-import { buildApiUrl } from '@/utils/api';
+import { fetchJson } from '@/utils/api';
 import LearningFlow from '../components/LearningFlow';
 import { PronounceButton } from '../components/PronounceButton';
 
@@ -364,21 +364,10 @@ export function StudyPage() {
       setSupabaseError(null);
 
       try {
-        const [deckResponse, cardsResponse] = await Promise.all([
-          fetch(buildApiUrl('/api/library')),
-          fetch(`${buildApiUrl('/api/flashcards')}?deckId=${encodeURIComponent(deckId)}`),
+        const [deckPayload, cardsPayload] = await Promise.all([
+          fetchJson<{ decks?: ApiDeckPayload[] }>('/api/library'),
+          fetchJson<{ cards?: ApiFlashcardPayload[] }>(`/api/flashcards?deckId=${encodeURIComponent(deckId)}`),
         ]);
-
-        const deckPayload = await deckResponse.json();
-        const cardsPayload = await cardsResponse.json();
-
-        if (!deckResponse.ok) {
-          throw new Error(deckPayload.error || 'Không thể tải bộ thẻ.');
-        }
-
-        if (!cardsResponse.ok) {
-          throw new Error(cardsPayload.error || 'Không thể tải danh sách thẻ.');
-        }
 
         if (!isMounted) {
           return;
