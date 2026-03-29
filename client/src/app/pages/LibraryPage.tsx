@@ -40,7 +40,6 @@ interface VocabularyItem {
 
 const CARDS_PER_PAGE = 6;
 const STORAGE_KEY = 'openlang-library-state';
-const VOCABULARY_CATEGORIES = ['All', 'Tech', 'Psychology', 'Student Life'];
 
 function loadPersistedState(): { page: number; filter: FilterType; search: string } {
   try {
@@ -50,7 +49,7 @@ function loadPersistedState(): { page: number; filter: FilterType; search: strin
   return { page: 1, filter: 'all', search: '' };
 }
 
-function useVocabularyByCategory(selectedCategory: string) {
+function useSupabaseVocabulary() {
   const [vocabularies, setVocabularies] = useState<VocabularyItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,16 +63,10 @@ function useVocabularyByCategory(selectedCategory: string) {
 
       try {
         const supabase = createSupabaseBrowserClient();
-        let query = supabase
+        const { data, error } = await supabase
           .from('vocabulary')
           .select('word, category, level, ipa, details')
           .order('word', { ascending: true });
-
-        if (selectedCategory !== 'All') {
-          query = query.eq('category', selectedCategory);
-        }
-
-        const { data, error } = await query;
 
         if (!isMounted) {
           return;
@@ -107,9 +100,47 @@ function useVocabularyByCategory(selectedCategory: string) {
     return () => {
       isMounted = false;
     };
-  }, [selectedCategory]);
+  }, []);
 
   return { vocabularies, loading, error };
+}
+
+function categoryGradient(category: string) {
+  switch (category.toLowerCase()) {
+    case 'animals':
+      return 'from-emerald-500 via-lime-500 to-green-600';
+    case 'tech':
+      return 'from-sky-500 via-cyan-500 to-blue-600';
+    case 'psychology':
+      return 'from-fuchsia-500 via-purple-500 to-violet-600';
+    case 'student life':
+      return 'from-amber-500 via-orange-500 to-rose-500';
+    case 'law':
+      return 'from-slate-600 via-slate-700 to-zinc-800';
+    case 'gaming':
+      return 'from-indigo-500 via-purple-500 to-pink-600';
+    default:
+      return 'from-violet-500 via-purple-500 to-fuchsia-600';
+  }
+}
+
+function categoryEmoji(category: string) {
+  switch (category.toLowerCase()) {
+    case 'animals':
+      return 'Animals';
+    case 'tech':
+      return 'Tech';
+    case 'psychology':
+      return 'Mind';
+    case 'student life':
+      return 'Campus';
+    case 'law':
+      return 'Law';
+    case 'gaming':
+      return 'Play';
+    default:
+      return 'Deck';
+  }
 }
 
 // ── Draggable horizontal carousel ────────────────────────────────────────
@@ -330,7 +361,7 @@ export function LibraryPage() {
   const [currentPage, setCurrentPage] = useState(persisted.page);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingDeck, setDeletingDeck] = useState<Deck | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedSupabaseCategory, setSelectedSupabaseCategory] = useState<string | null>(null);
   const { learningLanguages } = useLanguage();
   const navigate = useNavigate();
   const prevFilterRef = useRef(persisted.filter);
@@ -339,7 +370,7 @@ export function LibraryPage() {
     vocabularies,
     loading: vocabularyLoading,
     error: vocabularyError,
-  } = useVocabularyByCategory(selectedCategory);
+  } = useSupabaseVocabulary();
 
   const [myDecks, setMyDecks] = useState<Deck[]>([
     {
@@ -450,7 +481,35 @@ export function LibraryPage() {
   const pagedDecks = filteredDecks.slice((safePage - 1) * CARDS_PER_PAGE, safePage * CARDS_PER_PAGE);
 
   const filteredCommunity = communityDecks.filter(d => learningLanguages.includes(d.language as 'english' | 'japanese'));
-  const visibleVocabulary = vocabularies.slice(0, 6);
+  const vocabularyByCategory = vocabularies.reduce<Record<string, VocabularyItem[]>>((acc, item) => {
+    const category = item.category || 'Uncategorized';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(item);
+    return acc;
+  }, {});
+
+  const supabaseCategories = Object.keys(vocabularyByCategory).sort((a, b) => {
+    if (a === 'Animals') return -1;
+    if (b === 'Animals') return 1;
+    return a.localeCompare(b);
+  });
+
+  const activeSupabaseCategory =
+    selectedSupabaseCategory && vocabularyByCategory[selectedSupabaseCategory]
+      ? selectedSupabaseCategory
+      : supabaseCategories[0] ?? null;
+
+  const visibleVocabulary = activeSupabaseCategory
+    ? vocabularyByCategory[activeSupabaseCategory].slice(0, 6)
+    : [];
+
+  useEffect(() => {
+    if (!activeSupabaseCategory && supabaseCategories.length > 0) {
+      setSelectedSupabaseCategory(supabaseCategories[0]);
+    }
+  }, [activeSupabaseCategory, supabaseCategories]);
 
   return (
     <AnimatedPage>
@@ -628,26 +687,10 @@ export function LibraryPage() {
         <div className="space-y-6 pt-8 border-t-2 border-purple-100 dark:border-purple-900">
           <div className="flex flex-col gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Từ Vựng Từ Supabase</h2>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Chủ Đề Từ Supabase</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Dữ liệu được lấy trực tiếp từ bảng <code>vocabulary</code>.
+                Mỗi category trong bảng <code>vocabulary</code> sẽ tự động tạo thành một card lớn.
               </p>
-            </div>
-
-            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-              {VOCABULARY_CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`px-5 py-2.5 rounded-2xl font-semibold transition-all whitespace-nowrap ${
-                    selectedCategory === category
-                      ? 'bg-gradient-to-r from-purple-600 to-purple-500 text-white shadow-lg shadow-purple-200 dark:shadow-purple-900'
-                      : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-2 border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950'
-                  }`}
-                >
-                  {category}
-                </button>
-              ))}
             </div>
           </div>
 
@@ -665,25 +708,93 @@ export function LibraryPage() {
 
           {!vocabularyLoading && !vocabularyError && visibleVocabulary.length === 0 ? (
             <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-8 text-center text-gray-500 dark:text-gray-400">
-              Chưa có từ vựng cho chủ đề này.
+              Chưa có category nào trong Supabase.
             </div>
           ) : null}
 
-          {!vocabularyLoading && !vocabularyError && visibleVocabulary.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {visibleVocabulary.map((item) => (
-                <VocabularyCard
-                  key={`${item.category}-${item.word}`}
-                  word={item.word}
-                  pronunciation={item.ipa}
-                  meaning={item.details.definition_vi}
-                  example={item.details.example_en}
-                  exampleTranslation={item.details.example_vi}
-                  level={item.level}
-                  category={item.category}
-                  language="english"
-                />
-              ))}
+          {!vocabularyLoading && !vocabularyError && supabaseCategories.length > 0 ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {supabaseCategories.map((category) => {
+                  const items = vocabularyByCategory[category];
+                  const sample = items.slice(0, 3).map((item) => item.word).join(' • ');
+                  const isActive = category === activeSupabaseCategory;
+
+                  return (
+                    <button
+                      key={category}
+                      onClick={() => setSelectedSupabaseCategory(category)}
+                      className={`text-left rounded-3xl border-2 overflow-hidden transition-all ${
+                        isActive
+                          ? 'border-transparent shadow-xl shadow-purple-200/70 dark:shadow-purple-950/50 scale-[1.01]'
+                          : 'border-purple-200 dark:border-purple-800 hover:border-purple-300 dark:hover:border-purple-700 hover:shadow-lg'
+                      }`}
+                    >
+                      <div className={`p-6 bg-gradient-to-br ${categoryGradient(category)} text-white min-h-56 flex flex-col justify-between`}>
+                        <div className="flex items-start justify-between gap-3">
+                          <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-sm text-xs font-bold">
+                            {category === 'Animals' ? 'Động vật' : category}
+                          </span>
+                          <span className="px-3 py-1 rounded-full bg-black/15 backdrop-blur-sm text-xs font-semibold">
+                            {items.length} từ
+                          </span>
+                        </div>
+
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium uppercase tracking-[0.2em] text-white/80">
+                            {categoryEmoji(category)}
+                          </p>
+                          <h3 className="text-3xl font-black leading-tight">
+                            {category === 'Animals' ? 'Động vật' : category}
+                          </h3>
+                          <p className="text-sm text-white/85 line-clamp-2">
+                            {sample || 'Vocabulary deck'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center justify-between text-sm text-white/90">
+                          <span>Từ Supabase</span>
+                          <span>{isActive ? 'Đang xem' : 'Xem từ vựng'}</span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {activeSupabaseCategory ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100">
+                        {activeSupabaseCategory === 'Animals' ? 'Danh Sách Từ Vựng Động Vật' : `Danh Sách ${activeSupabaseCategory}`}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Preview 6 từ đầu tiên từ category đang chọn.
+                      </p>
+                    </div>
+                    <div className="px-4 py-2 rounded-2xl bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-sm font-semibold">
+                      {vocabularyByCategory[activeSupabaseCategory].length} từ
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {visibleVocabulary.map((item) => (
+                      <VocabularyCard
+                        key={`${item.category}-${item.word}`}
+                        word={item.word}
+                        pronunciation={item.ipa}
+                        meaning={item.details.definition_vi}
+                        example={item.details.example_en}
+                        exampleTranslation={item.details.example_vi}
+                        level={item.level}
+                        category={item.category}
+                        language="english"
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>
