@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Check, X, Trophy, Star, RotateCcw, Home } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
+import { useUser } from '../contexts/UserContext';
+import { saveDeckProgress } from '@/utils/progress';
 
 type QuizType = 'multiple-choice' | 'fill-blank';
 type FeedbackType = 'correct' | 'incorrect' | null;
@@ -27,6 +29,7 @@ interface QuizResult {
 export function QuizPage() {
   const navigate = useNavigate();
   const { deckId } = useParams();
+  const { isLoggedIn, getAccessToken } = useUser();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [userInput, setUserInput] = useState('');
@@ -137,6 +140,38 @@ export function QuizPage() {
   const calculateExp = (): number => {
     return score.correct * 10;
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function persistCompletion() {
+      if (!isCompleted || !isLoggedIn || !deckId) {
+        return;
+      }
+
+      const token = await getAccessToken();
+      if (!token || !isMounted) {
+        return;
+      }
+
+      try {
+        await saveDeckProgress(token, {
+          deckId,
+          progress: 100,
+          currentIndex: questions.length - 1,
+          totalCards: questions.length,
+        });
+      } catch {
+        // Ignore and keep the completion flow uninterrupted.
+      }
+    }
+
+    void persistCompletion();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [deckId, getAccessToken, isCompleted, isLoggedIn, questions.length]);
 
   // Results Screen
   if (isCompleted) {

@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, ArrowRight, CheckCircle, Keyboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import vocabularySeed from '@/data/vocabulary.json';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
 import { fetchJson } from '@/utils/api';
+import { saveDeckProgress } from '@/utils/progress';
 import LearningFlow from '../components/LearningFlow';
 import { PronounceButton } from '../components/PronounceButton';
+import { useUser } from '../contexts/UserContext';
 
 interface VocabularyCard {
   id: string;
@@ -46,6 +48,8 @@ interface ApiFlashcardPayload {
     exampleTranslation: string;
   };
   imageUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface SeedVocabularyItem {
@@ -261,6 +265,7 @@ const BUILT_IN_DECK_IDS = new Set([
 export function StudyPage() {
   const navigate = useNavigate();
   const { deckId } = useParams();
+  const { isLoggedIn, getAccessToken } = useUser();
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [showHotkeys, setShowHotkeys] = useState(false);
   const [supabaseDeck, setSupabaseDeck] = useState<DeckConfig | null>(null);
@@ -268,6 +273,7 @@ export function StudyPage() {
   const [supabaseError, setSupabaseError] = useState<string | null>(null);
   const [customDeck, setCustomDeck] = useState<DeckConfig | null>(null);
   const [keyboardPressed, setKeyboardPressed] = useState(false);
+  const lastSavedProgressRef = useRef<string>('');
   const supabaseCategory = decodeSupabaseCategory(deckId || '');
   const shouldLoadCustomDeck = Boolean(
     deckId &&
@@ -381,7 +387,13 @@ export function StudyPage() {
           id: deckId,
           name: deckMeta?.name || 'Bộ thẻ của bạn',
           language: deckMeta?.language || 'english',
-          cards: ((cardsPayload.cards || []) as ApiFlashcardPayload[]).map((card) => ({
+          cards: ((cardsPayload.cards || []) as ApiFlashcardPayload[])
+            .sort((a, b) => {
+              const currentTime = new Date(a.createdAt || a.updatedAt || 0).getTime();
+              const nextTime = new Date(b.createdAt || b.updatedAt || 0).getTime();
+              return nextTime - currentTime;
+            })
+            .map((card) => ({
             id: card.id,
             word: card.front.word,
             furigana: card.front.furigana,
@@ -417,6 +429,7 @@ export function StudyPage() {
   }, [deckId, shouldLoadCustomDeck]);
 
   const deckData = customDeck ?? supabaseDeck ?? getDeckById(deckId || '1');
+  const activeDeckId = deckId || '1';
   const currentCard = deckData.cards[currentCardIndex] ?? deckData.cards[0];
   const progress = ((currentCardIndex + 1) / deckData.cards.length) * 100;
   const isLastCard = currentCardIndex === deckData.cards.length - 1;
@@ -463,6 +476,54 @@ export function StudyPage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [currentCard, handleNext, handlePrevious, triggerKeyboardPress]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function persistProgress() {
+      if (!isLoggedIn || !deckData.cards.length) {
+        return;
+      }
+
+      const token = await getAccessToken();
+      if (!token || !isMounted) {
+        return;
+      }
+
+      const roundedProgress = Math.max(0, Math.min(100, Math.round(progress)));
+      const saveKey = `${activeDeckId}:${currentCardIndex}:${roundedProgress}:${deckData.cards.length}`;
+
+      if (lastSavedProgressRef.current === saveKey) {
+        return;
+      }
+
+      lastSavedProgressRef.current = saveKey;
+
+      try {
+        await saveDeckProgress(token, {
+          deckId: activeDeckId,
+          progress: roundedProgress,
+          currentIndex: currentCardIndex,
+          totalCards: deckData.cards.length,
+        });
+      } catch {
+        // Ignore transient save errors and keep studying flow smooth.
+      }
+    }
+
+    void persistProgress();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    activeDeckId,
+    currentCardIndex,
+    deckData.cards.length,
+    getAccessToken,
+    isLoggedIn,
+    progress,
+  ]);
 
   if (supabaseLoading) {
     return (

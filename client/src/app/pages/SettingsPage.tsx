@@ -1,5 +1,5 @@
-import { Check, Globe, Languages, Sun, Moon, Monitor, User, Mail, LogOut, Volume2, Eye, Bell, LogIn, UserPlus } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Globe, Languages, Sun, Moon, Monitor, User, Mail, LogOut, Volume2, Eye, Bell, LogIn, UserPlus, Camera, KeyRound } from 'lucide-react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useUser } from '../contexts/UserContext';
@@ -9,12 +9,116 @@ import { AuthModal } from '../components/AuthModal';
 export function SettingsPage() {
   const { uiLanguage, learningLanguages, setUILanguage, toggleLearningLanguage } = useLanguage();
   const { theme, setTheme } = useTheme();
-  const { user, isLoggedIn, updateName, logout } = useUser();
+  const { user, isLoggedIn, updateName, updateAvatar, updatePassword, updateGoal, logout } = useUser();
   const [authOpen, setAuthOpen] = useState(false);
 
   // Local editable name state
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(user?.name ?? '');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [accountMessage, setAccountMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [goalInput, setGoalInput] = useState<number>(user?.goal ?? 15);
+  const [goalSaving, setGoalSaving] = useState(false);
+
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [passwordSaving, setPasswordSaving] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    setNameInput(user.name);
+    setGoalInput(user.goal);
+  }, [user]);
+
+  const saveName = async () => {
+    if (!nameInput.trim()) {
+      setAccountMessage({ type: 'error', text: 'Tên không được để trống.' });
+      return;
+    }
+
+    setNameSaving(true);
+    const result = await updateName(nameInput);
+    setNameSaving(false);
+
+    if (!result.ok) {
+      setAccountMessage({ type: 'error', text: result.error || 'Không thể cập nhật tên.' });
+      return;
+    }
+
+    setEditingName(false);
+    setAccountMessage({ type: 'success', text: 'Đã cập nhật tên hiển thị.' });
+  };
+
+  const handleAvatarFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.currentTarget.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    setAvatarUploading(true);
+    const result = await updateAvatar(file);
+    setAvatarUploading(false);
+
+    if (!result.ok) {
+      setAccountMessage({ type: 'error', text: result.error || 'Không thể tải ảnh đại diện.' });
+      return;
+    }
+
+    setAccountMessage({ type: 'success', text: 'Đã cập nhật ảnh đại diện.' });
+  };
+
+  const saveGoal = async () => {
+    setGoalSaving(true);
+    const result = await updateGoal(goalInput);
+    setGoalSaving(false);
+
+    if (!result.ok) {
+      setAccountMessage({ type: 'error', text: result.error || 'Không thể lưu mục tiêu học tập.' });
+      return;
+    }
+
+    setAccountMessage({ type: 'success', text: 'Đã cập nhật mục tiêu hằng ngày.' });
+  };
+
+  const changePassword = async () => {
+    if (!passwordInput || !passwordConfirm) {
+      setAccountMessage({ type: 'error', text: 'Vui lòng nhập đầy đủ mật khẩu mới và xác nhận.' });
+      return;
+    }
+
+    if (passwordInput.length < 6) {
+      setAccountMessage({ type: 'error', text: 'Mật khẩu mới cần ít nhất 6 ký tự.' });
+      return;
+    }
+
+    if (passwordInput !== passwordConfirm) {
+      setAccountMessage({ type: 'error', text: 'Mật khẩu xác nhận không khớp.' });
+      return;
+    }
+
+    setPasswordSaving(true);
+    const result = await updatePassword(passwordInput);
+    setPasswordSaving(false);
+
+    if (!result.ok) {
+      setAccountMessage({ type: 'error', text: result.error || 'Không thể đổi mật khẩu.' });
+      return;
+    }
+
+    setPasswordInput('');
+    setPasswordConfirm('');
+    setAccountMessage({ type: 'success', text: 'Đổi mật khẩu thành công.' });
+  };
+
+  const handleLogout = async () => {
+    await logout();
+  };
 
   // Learning preferences
   const [autoPlayAudio, setAutoPlayAudio] = useState(true);
@@ -76,12 +180,26 @@ export function SettingsPage() {
           </div>
 
           {isLoggedIn && user ? (
-            <div className="flex items-center gap-4 p-4 bg-purple-50 dark:bg-purple-950 rounded-2xl">
+            <div className="space-y-4">
+              <div className="flex items-center gap-4 p-4 bg-purple-50 dark:bg-purple-950 rounded-2xl">
               <img
                 src={user.avatar}
                 alt={user.name}
                 className="w-16 h-16 rounded-full border-2 border-purple-300 dark:border-purple-700 object-cover bg-purple-100"
               />
+              <div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border-2 border-purple-300 px-3 py-2 text-xs font-semibold text-purple-700 transition-colors hover:bg-purple-100 dark:border-purple-700 dark:text-purple-300 dark:hover:bg-purple-900">
+                  <Camera className="h-4 w-4" />
+                  {avatarUploading ? 'Đang tải ảnh...' : 'Đổi ảnh đại diện'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarFileChange}
+                    disabled={avatarUploading}
+                  />
+                </label>
+              </div>
               <div className="flex-1">
                 {editingName ? (
                   <div className="flex items-center gap-2">
@@ -90,16 +208,17 @@ export function SettingsPage() {
                       value={nameInput}
                       onChange={(e) => setNameInput(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') { updateName(nameInput); setEditingName(false); }
+                        if (e.key === 'Enter') { void saveName(); }
                         if (e.key === 'Escape') { setNameInput(user.name); setEditingName(false); }
                       }}
                       className="flex-1 px-3 py-1.5 rounded-xl border-2 border-purple-400 dark:border-purple-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-100 font-bold text-base focus:outline-none"
                     />
                     <button
-                      onClick={() => { updateName(nameInput); setEditingName(false); }}
+                      onClick={() => { void saveName(); }}
+                      disabled={nameSaving}
                       className="px-3 py-1.5 bg-purple-600 text-white rounded-xl text-sm font-semibold hover:bg-purple-700 transition-colors"
                     >
-                      Lưu
+                      {nameSaving ? 'Đang lưu...' : 'Lưu'}
                     </button>
                     <button
                       onClick={() => { setNameInput(user.name); setEditingName(false); }}
@@ -125,12 +244,78 @@ export function SettingsPage() {
                 </div>
               </div>
               <button
-                onClick={logout}
+                onClick={() => { void handleLogout(); }}
                 className="px-4 py-2 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-xl font-semibold hover:bg-red-200 dark:hover:bg-red-800 transition-colors flex items-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
                 Đăng Xuất
               </button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border-2 border-purple-100 bg-white p-4 dark:border-purple-800 dark:bg-gray-800">
+                  <p className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-200">Mục tiêu từ vựng mỗi ngày</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={500}
+                      value={goalInput}
+                      onChange={(event) => setGoalInput(Number(event.target.value || user.goal || 15))}
+                      className="w-full rounded-xl border-2 border-purple-200 px-3 py-2 text-gray-800 focus:border-purple-400 focus:outline-none dark:border-purple-700 dark:bg-gray-900 dark:text-gray-100"
+                    />
+                    <button
+                      onClick={() => { void saveGoal(); }}
+                      disabled={goalSaving}
+                      className="rounded-xl bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
+                    >
+                      {goalSaving ? 'Lưu...' : 'Lưu'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border-2 border-purple-100 bg-white p-4 dark:border-purple-800 dark:bg-gray-800">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                    <KeyRound className="h-4 w-4 text-purple-500" />
+                    Đổi mật khẩu
+                  </div>
+                  <div className="space-y-2">
+                    <input
+                      type="password"
+                      placeholder="Mật khẩu mới"
+                      value={passwordInput}
+                      onChange={(event) => setPasswordInput(event.target.value)}
+                      className="w-full rounded-xl border-2 border-purple-200 px-3 py-2 text-gray-800 focus:border-purple-400 focus:outline-none dark:border-purple-700 dark:bg-gray-900 dark:text-gray-100"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Xác nhận mật khẩu mới"
+                      value={passwordConfirm}
+                      onChange={(event) => setPasswordConfirm(event.target.value)}
+                      className="w-full rounded-xl border-2 border-purple-200 px-3 py-2 text-gray-800 focus:border-purple-400 focus:outline-none dark:border-purple-700 dark:bg-gray-900 dark:text-gray-100"
+                    />
+                    <button
+                      onClick={() => { void changePassword(); }}
+                      disabled={passwordSaving}
+                      className="w-full rounded-xl bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
+                    >
+                      {passwordSaving ? 'Đang đổi...' : 'Đổi mật khẩu'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {accountMessage ? (
+                <div
+                  className={`rounded-2xl border px-4 py-3 text-sm ${
+                    accountMessage.type === 'error'
+                      ? 'border-red-200 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300'
+                      : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                  }`}
+                >
+                  {accountMessage.text}
+                </div>
+              ) : null}
             </div>
           ) : (
             /* Not logged in — show login/register prompt */

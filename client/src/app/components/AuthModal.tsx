@@ -12,7 +12,7 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const { login, register } = useUser();
+  const { login, register, resetPassword } = useUser();
   const [mode, setMode] = useState<Mode>('login');
   const [successName, setSuccessName] = useState<string | null>(null);
 
@@ -37,11 +37,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   // Forgot state
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
+  const [forgotError, setForgotError] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const resetAll = () => {
     setLoginUsername(''); setLoginPassword(''); setLoginError('');
     setRegEmail(''); setRegName(''); setRegUsername(''); setRegPassword(''); setRegConfirm(''); setRegError('');
-    setForgotEmail(''); setForgotSent(false);
+    setForgotEmail(''); setForgotSent(false); setForgotError('');
     setMode('login');
   };
 
@@ -55,8 +57,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       return;
     }
     setLoginLoading(true);
-    await new Promise(r => setTimeout(r, 500));
-    const result = login(loginUsername.trim(), loginPassword);
+    const result = await login(loginUsername.trim(), loginPassword);
     setLoginLoading(false);
     if (result.ok) {
       // Show success popup with the user's display name
@@ -84,8 +85,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
       setRegError('Mật khẩu xác nhận không khớp.'); return;
     }
     setRegLoading(true);
-    await new Promise(r => setTimeout(r, 600));
-    const result = register({ username: regUsername.trim(), password: regPassword, name: regName.trim(), email: regEmail.trim() });
+    const result = await register({ username: regUsername.trim(), password: regPassword, name: regName.trim(), email: regEmail.trim() });
     setRegLoading(false);
     if (result.ok) {
       resetAll();
@@ -94,8 +94,24 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     else setRegError(result.error || 'Đăng ký thất bại.');
   };
 
-  const handleForgot = (e: React.FormEvent) => {
+  const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
+    setForgotError('');
+
+    if (!forgotEmail.trim()) {
+      setForgotError('Vui lòng nhập email.');
+      return;
+    }
+
+    setForgotLoading(true);
+    const result = await resetPassword(forgotEmail.trim());
+    setForgotLoading(false);
+
+    if (!result.ok) {
+      setForgotError(result.error || 'Không thể gửi email khôi phục mật khẩu.');
+      return;
+    }
+
     setForgotSent(true);
   };
 
@@ -151,16 +167,16 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       <form onSubmit={handleLogin} className="space-y-4">
                         {/* Username */}
                         <div className="space-y-1.5">
-                          <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Tên đăng nhập</label>
+                          <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Email</label>
                           <div className="relative">
                             <User className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                             <input
-                              type="text"
+                              type="email"
                               value={loginUsername}
                               onChange={e => setLoginUsername(e.target.value)}
-                              placeholder="Nhập tên đăng nhập"
+                              placeholder="email@example.com"
                               className="w-full pl-11 pr-4 py-3 rounded-2xl border-2 border-purple-100 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/30 focus:border-purple-400 dark:focus:border-purple-600 focus:outline-none text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 transition-colors"
-                              autoComplete="username"
+                              autoComplete="email"
                             />
                           </div>
                         </div>
@@ -414,10 +430,22 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           </div>
                           <button
                             type="submit"
+                            disabled={forgotLoading}
                             className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-2xl font-semibold hover:shadow-lg transition-all"
                           >
-                            Gửi Link Khôi Phục
+                            {forgotLoading ? 'Đang gửi...' : 'Gửi Link Khôi Phục'}
                           </button>
+
+                          <AnimatePresence>
+                            {forgotError && (
+                              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                                className="flex items-center gap-2 px-4 py-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-2xl text-red-700 dark:text-red-300 text-sm"
+                              >
+                                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                {forgotError}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </form>
                       )}
 

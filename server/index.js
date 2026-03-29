@@ -8,6 +8,7 @@ const aiSuggestCardHandler = require("../api/ai-suggest-card.js");
 const flashcardsHandler = require("../api/flashcards.js");
 const flashcardImagesHandler = require("../api/flashcard-images.js");
 const libraryHandler = require("../api/library.js");
+const userProgressHandler = require("../api/user-progress.js");
 
 const port = process.env.PORT || 3001;
 
@@ -40,11 +41,15 @@ const server = http.createServer((req, res) => {
     return libraryHandler(req, res);
   }
 
+  if (requestUrl.pathname === "/api/user-progress") {
+    return userProgressHandler(req, res);
+  }
+
   return sendJson(res, 200, {
     message: "OpenLang server is running",
     method: req.method,
     url: req.url,
-    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images", "/api/ai-generate-deck", "/api/ai-suggest-card"],
+    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images", "/api/user-progress", "/api/ai-generate-deck", "/api/ai-suggest-card"],
   });
 });
 

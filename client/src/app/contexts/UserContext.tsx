@@ -1,125 +1,480 @@
-import { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import avatarImage from '../../assets/41f329b57dbad6c9a42f2a8cb17808ac046f48c9.png';
+import { createSupabaseBrowserClient } from '@/utils/supabase/client';
 
 // ── Types ─────────────────────────────────────────────────────────────────
 export interface UserData {
+  id: string;
   name: string;
   email: string;
   avatar: string;
   username: string;
+  goal: number;
 }
 
-interface MockAccount {
-  username: string;
-  password: string;
-  name: string;
-  email: string;
-  avatar: string;
+interface AuthResult {
+  ok: boolean;
+  error?: string;
+  name?: string;
+}
+
+interface ProfileRow {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  goal: number | null;
 }
 
 interface UserContextType {
   user: UserData | null;
   isLoggedIn: boolean;
-  login: (username: string, password: string) => { ok: boolean; error?: string; name?: string };
-  logout: () => void;
-  register: (data: { username: string; password: string; name: string; email: string }) => { ok: boolean; error?: string };
-  updateName: (name: string) => void;
-  updateAvatar: (avatar: string) => void;
+  loading: boolean;
+  login: (identifier: string, password: string) => Promise<AuthResult>;
+  logout: () => Promise<void>;
+  register: (data: { username: string; password: string; name: string; email: string }) => Promise<AuthResult>;
+  resetPassword: (email: string) => Promise<AuthResult>;
+  updateName: (name: string) => Promise<AuthResult>;
+  updateGoal: (goal: number) => Promise<AuthResult>;
+  updateAvatar: (file: File) => Promise<AuthResult>;
+  updatePassword: (nextPassword: string) => Promise<AuthResult>;
+  getAccessToken: () => Promise<string | null>;
 }
 
-// ── Mock accounts (stored in-memory, can be extended via register) ────────
-const MOCK_ACCOUNTS: MockAccount[] = [
-  {
-    username: 'admin',
-    password: '123456',
-    name: 'Nguyễn Quang Bình',
-    email: 'quangbinh@example.com',
-    avatar: avatarImage,
-  },
-];
+const supabase = createSupabaseBrowserClient();
 
-// ── Persist helpers ───────────────────────────────────────────────────────
-const AUTH_KEY = 'openlang-auth';
-
-function loadAuth(): UserData | null {
-  try {
-    const raw = localStorage.getItem(AUTH_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return null;
+function normalizeUsername(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, '_');
 }
 
-function saveAuth(user: UserData | null) {
-  if (user) localStorage.setItem(AUTH_KEY, JSON.stringify(user));
-  else localStorage.removeItem(AUTH_KEY);
+function mapUser(authUser: SupabaseUser, profile: ProfileRow | null): UserData {
+  const usernameFromMeta =
+    typeof authUser.user_metadata?.username === 'string'
+      ? authUser.user_metadata.username
+      : null;
+  const fullNameFromMeta =
+    typeof authUser.user_metadata?.full_name === 'string'
+      ? authUser.user_metadata.full_name
+      : null;
+  const avatarFromMeta =
+    typeof authUser.user_metadata?.avatar_url === 'string'
+      ? authUser.user_metadata.avatar_url
+      : null;
+
+  const email = authUser.email || '';
+  const username =
+    profile?.username ||
+    usernameFromMeta ||
+    (email.includes('@') ? email.split('@')[0] : 'user');
+
+  return {
+    id: authUser.id,
+    name: profile?.full_name || fullNameFromMeta || username,
+    email,
+    username,
+    avatar: profile?.avatar_url || avatarFromMeta || avatarImage,
+    goal: Number(profile?.goal || 15),
+  };
+}
+
+async function getProfileById(userId: string): Promise<ProfileRow | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username, full_name, avatar_url, goal')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as ProfileRow | null) ?? null;
+}
+
+async function upsertProfile(
+  userId: string,
+  payload: Partial<Pick<ProfileRow, 'username' | 'full_name' | 'avatar_url' | 'goal'>>,
+) {
+  const profilePayload = {
+    id: userId,
+    updated_at: new Date().toISOString(),
+    ...payload,
+  };
+
+  const { error } = await supabase
+    .from('profiles')
+    .upsert(profilePayload, { onConflict: 'id' });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
+async function hydrateUser(authUser: SupabaseUser): Promise<UserData> {
+  let profile = await getProfileById(authUser.id);
+
+  if (!profile) {
+    const email = authUser.email || '';
+    const usernameFromMeta =
+      typeof authUser.user_metadata?.username === 'string'
+        ? authUser.user_metadata.username
+        : '';
+    const fullNameFromMeta =
+      typeof authUser.user_metadata?.full_name === 'string'
+        ? authUser.user_metadata.full_name
+        : '';
+
+    await upsertProfile(authUser.id, {
+      username: normalizeUsername(usernameFromMeta || (email.includes('@') ? email.split('@')[0] : 'user')),
+      full_name: fullNameFromMeta || usernameFromMeta || email,
+      goal: 15,
+    });
+
+    profile = await getProfileById(authUser.id);
+  }
+
+  return mapUser(authUser, profile);
 }
 
 // ── Context ───────────────────────────────────────────────────────────────
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: ReactNode }) {
-  const [user, setUserState] = useState<UserData | null>(loadAuth);
-  // In-memory registered accounts (resets on hard reload; extend with localStorage if needed)
-  const [accounts] = useState<MockAccount[]>(MOCK_ACCOUNTS);
+  const [user, setUserState] = useState<UserData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const isLoggedIn = user !== null;
 
-  const login = useCallback((username: string, password: string): { ok: boolean; error?: string; name?: string } => {
-    const found = accounts.find(a => a.username === username && a.password === password);
-    if (!found) return { ok: false, error: 'Tên đăng nhập hoặc mật khẩu không đúng.' };
-    const userData: UserData = {
-      username: found.username,
-      name: found.name,
-      email: found.email,
-      avatar: found.avatar,
-    };
-    setUserState(userData);
-    saveAuth(userData);
-    return { ok: true, name: found.name };
-  }, [accounts]);
+  const syncFromSession = useCallback(async () => {
+    const { data, error } = await supabase.auth.getSession();
 
-  const logout = useCallback(() => {
-    setUserState(null);
-    saveAuth(null);
+    if (error) {
+      setUserState(null);
+      setLoading(false);
+      return;
+    }
+
+    const authUser = data.session?.user;
+
+    if (!authUser) {
+      setUserState(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const hydrated = await hydrateUser(authUser);
+      setUserState(hydrated);
+    } catch {
+      setUserState(mapUser(authUser, null));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const register = useCallback((data: { username: string; password: string; name: string; email: string }): { ok: boolean; error?: string } => {
-    if (accounts.find(a => a.username === data.username)) {
+  useEffect(() => {
+    let mounted = true;
+
+    void (async () => {
+      await syncFromSession();
+      if (!mounted) {
+        return;
+      }
+    })();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) {
+        return;
+      }
+
+      if (!session?.user) {
+        setUserState(null);
+        setLoading(false);
+        return;
+      }
+
+      void (async () => {
+        try {
+          const hydrated = await hydrateUser(session.user);
+          if (mounted) {
+            setUserState(hydrated);
+          }
+        } catch {
+          if (mounted) {
+            setUserState(mapUser(session.user, null));
+          }
+        } finally {
+          if (mounted) {
+            setLoading(false);
+          }
+        }
+      })();
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, [syncFromSession]);
+
+  const getAccessToken = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || null;
+  }, []);
+
+  const login = useCallback(async (identifier: string, password: string): Promise<AuthResult> => {
+    const normalizedIdentifier = identifier.trim();
+
+    if (!normalizedIdentifier.includes('@')) {
+      return {
+        ok: false,
+        error: 'Vui lòng dùng email để đăng nhập (username dùng cho hồ sơ hiển thị).',
+      };
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedIdentifier,
+      password,
+    });
+
+    if (error || !data.user) {
+      return { ok: false, error: error?.message || 'Đăng nhập thất bại.' };
+    }
+
+    try {
+      const hydrated = await hydrateUser(data.user);
+      setUserState(hydrated);
+      return { ok: true, name: hydrated.name };
+    } catch (hydrateError) {
+      const fallback = mapUser(data.user, null);
+      setUserState(fallback);
+      return {
+        ok: true,
+        name: fallback.name,
+        error: hydrateError instanceof Error ? hydrateError.message : undefined,
+      };
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUserState(null);
+  }, []);
+
+  const register = useCallback(async (data: { username: string; password: string; name: string; email: string }): Promise<AuthResult> => {
+    const username = normalizeUsername(data.username);
+
+    const { data: existing, error: usernameError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', username)
+      .limit(1);
+
+    if (!usernameError && Array.isArray(existing) && existing.length > 0) {
       return { ok: false, error: 'Tên đăng nhập đã tồn tại.' };
     }
-    const newAccount: MockAccount = { ...data, avatar: avatarImage };
-    accounts.push(newAccount);
-    const userData: UserData = {
-      username: data.username,
-      name: data.name,
-      email: data.email,
-      avatar: avatarImage,
-    };
-    setUserState(userData);
-    saveAuth(userData);
-    return { ok: true };
-  }, [accounts]);
 
-  const updateName = useCallback((name: string) => {
-    setUserState(prev => {
-      if (!prev) return prev;
-      const updated = { ...prev, name };
-      saveAuth(updated);
-      return updated;
+    const { data: signUpData, error } = await supabase.auth.signUp({
+      email: data.email.trim(),
+      password: data.password,
+      options: {
+        data: {
+          username,
+          full_name: data.name.trim(),
+        },
+      },
     });
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+
+    const signedUser = signUpData.user;
+    if (!signedUser) {
+      return {
+        ok: false,
+        error: 'Không tạo được tài khoản. Vui lòng thử lại.',
+      };
+    }
+
+    try {
+      await upsertProfile(signedUser.id, {
+        username,
+        full_name: data.name.trim(),
+        avatar_url: null,
+        goal: 15,
+      });
+    } catch (profileError) {
+      return {
+        ok: false,
+        error: profileError instanceof Error ? profileError.message : 'Không thể lưu hồ sơ người dùng.',
+      };
+    }
+
+    if (!signUpData.session) {
+      const signInResult = await supabase.auth.signInWithPassword({
+        email: data.email.trim(),
+        password: data.password,
+      });
+
+      if (signInResult.error || !signInResult.data.user) {
+        return {
+          ok: true,
+          name: data.name.trim(),
+        };
+      }
+
+      const hydrated = await hydrateUser(signInResult.data.user);
+      setUserState(hydrated);
+      return { ok: true, name: hydrated.name };
+    }
+
+    const hydrated = await hydrateUser(signedUser);
+    setUserState(hydrated);
+    return { ok: true, name: hydrated.name };
   }, []);
 
-  const updateAvatar = useCallback((avatar: string) => {
-    setUserState(prev => {
-      if (!prev) return prev;
-      const updated = { ...prev, avatar };
-      saveAuth(updated);
-      return updated;
+  const resetPassword = useCallback(async (email: string): Promise<AuthResult> => {
+    const redirectTo = `${window.location.origin}/settings`;
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
+  }, []);
+
+  const updateName = useCallback(async (name: string): Promise<AuthResult> => {
+    if (!user) {
+      return { ok: false, error: 'Bạn chưa đăng nhập.' };
+    }
+
+    const nextName = name.trim();
+    if (!nextName) {
+      return { ok: false, error: 'Tên không được để trống.' };
+    }
+
+    try {
+      await upsertProfile(user.id, { full_name: nextName });
+      await supabase.auth.updateUser({
+        data: {
+          full_name: nextName,
+          username: user.username,
+          avatar_url: user.avatar,
+        },
+      });
+      setUserState((prev) => (prev ? { ...prev, name: nextName } : prev));
+      return { ok: true, name: nextName };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Không thể cập nhật tên.',
+      };
+    }
+  }, [user]);
+
+  const updateGoal = useCallback(async (goal: number): Promise<AuthResult> => {
+    if (!user) {
+      return { ok: false, error: 'Bạn chưa đăng nhập.' };
+    }
+
+    const normalizedGoal = Math.max(1, Math.round(goal));
+
+    try {
+      await upsertProfile(user.id, { goal: normalizedGoal });
+      setUserState((prev) => (prev ? { ...prev, goal: normalizedGoal } : prev));
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Không thể cập nhật mục tiêu.',
+      };
+    }
+  }, [user]);
+
+  const updateAvatar = useCallback(async (file: File): Promise<AuthResult> => {
+    if (!user) {
+      return { ok: false, error: 'Bạn chưa đăng nhập.' };
+    }
+
+    if (!file.type.startsWith('image/')) {
+      return { ok: false, error: 'Vui lòng chọn file ảnh hợp lệ.' };
+    }
+
+    const ext = file.name.includes('.') ? file.name.split('.').pop() : 'jpg';
+    const safeExt = (ext || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+    const filePath = `${user.id}/${Date.now()}.${safeExt}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(filePath, file, {
+        upsert: true,
+      });
+
+    if (uploadError) {
+      if (uploadError.message.toLowerCase().includes('bucket')) {
+        return {
+          ok: false,
+          error: 'Chưa có bucket avatars trong Supabase Storage. Hãy tạo bucket avatars trước.',
+        };
+      }
+
+      return { ok: false, error: uploadError.message };
+    }
+
+    const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+    const avatarUrl = data.publicUrl;
+
+    try {
+      await upsertProfile(user.id, { avatar_url: avatarUrl });
+      await supabase.auth.updateUser({
+        data: {
+          full_name: user.name,
+          username: user.username,
+          avatar_url: avatarUrl,
+        },
+      });
+      setUserState((prev) => (prev ? { ...prev, avatar: avatarUrl } : prev));
+      return { ok: true };
+    } catch (error) {
+      return {
+        ok: false,
+        error: error instanceof Error ? error.message : 'Không thể cập nhật ảnh đại diện.',
+      };
+    }
+  }, [user]);
+
+  const updatePassword = useCallback(async (nextPassword: string): Promise<AuthResult> => {
+    const { error } = await supabase.auth.updateUser({
+      password: nextPassword,
     });
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+
+    return { ok: true };
   }, []);
 
   return (
-    <UserContext.Provider value={{ user, isLoggedIn, login, logout, register, updateName, updateAvatar }}>
+    <UserContext.Provider
+      value={{
+        user,
+        isLoggedIn,
+        loading,
+        login,
+        logout,
+        register,
+        resetPassword,
+        updateName,
+        updateGoal,
+        updateAvatar,
+        updatePassword,
+        getAccessToken,
+      }}
+    >
       {children}
     </UserContext.Provider>
   );

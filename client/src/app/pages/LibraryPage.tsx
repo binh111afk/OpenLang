@@ -11,6 +11,8 @@ import vocabularySeed from '@/data/vocabulary.json';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
 import { fetchJson } from '@/utils/api';
 import { createDeckWithAI } from '@/utils/aiDeck';
+import { useUser } from '../contexts/UserContext';
+import { fetchUserDeckProgress } from '@/utils/progress';
 
 type FilterType = 'all' | 'english' | 'japanese' | 'favorites';
 
@@ -395,6 +397,8 @@ export function LibraryPage() {
     loading: vocabularyLoading,
     error: vocabularyError,
   } = useSupabaseVocabulary();
+  const { isLoggedIn, getAccessToken } = useUser();
+  const [progressByDeck, setProgressByDeck] = useState<Record<string, number>>({});
 
   const seedDecks: Deck[] = [
     {
@@ -496,6 +500,50 @@ export function LibraryPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadProgress() {
+      if (!isLoggedIn) {
+        if (isMounted) {
+          setProgressByDeck({});
+        }
+        return;
+      }
+
+      try {
+        const token = await getAccessToken();
+        if (!token) {
+          if (isMounted) {
+            setProgressByDeck({});
+          }
+          return;
+        }
+
+        const entries = await fetchUserDeckProgress(token);
+        if (!isMounted) {
+          return;
+        }
+
+        const nextMap: Record<string, number> = {};
+        for (const entry of entries) {
+          nextMap[entry.deckId] = entry.progress;
+        }
+        setProgressByDeck(nextMap);
+      } catch {
+        if (isMounted) {
+          setProgressByDeck({});
+        }
+      }
+    }
+
+    void loadProgress();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoggedIn, getAccessToken]);
+
   const communityDecks = [
     { id: 'c1', name: 'JLPT N3 Vocabulary Master', wordCount: 180, users: 1250, language: 'japanese', trending: true },
     { id: 'c2', name: 'Common English Phrases', wordCount: 100, users: 2340, language: 'english', trending: true },
@@ -544,7 +592,12 @@ export function LibraryPage() {
     };
   });
 
-  const allDecks = [...supabaseDecks, ...myDecks];
+  const allDecks = [...supabaseDecks, ...myDecks].map((deck) => ({
+    ...deck,
+    progress:
+      progressByDeck[deck.id] ??
+      (isLoggedIn ? 0 : deck.progress),
+  }));
 
   const filters = [
     { value: 'all' as const, label: 'Tất Cả', count: allDecks.filter(d => learningLanguages.includes(d.language)).length },

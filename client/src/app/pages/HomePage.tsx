@@ -104,7 +104,7 @@ export function HomePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <WordsLearnedCard />
           <StreakCard />
-          <DailyGoalCard current={8} goal={15} />
+          <DailyGoalCard current={8} goal={user?.goal ?? 15} />
         </div>
 
         {/* Start Learning Button */}

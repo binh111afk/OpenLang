@@ -27,6 +27,8 @@ interface FlashcardApiItem {
     exampleTranslation: string;
   };
   imageUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 interface LocationState {
@@ -88,7 +90,13 @@ export function AddCardsPage() {
           return;
         }
 
-        const loadedCards: Card[] = ((payload.cards || []) as FlashcardApiItem[]).map((card) => ({
+        const loadedCards: Card[] = ((payload.cards || []) as FlashcardApiItem[])
+          .sort((a, b) => {
+            const currentTime = new Date(a.createdAt || a.updatedAt || 0).getTime();
+            const nextTime = new Date(b.createdAt || b.updatedAt || 0).getTime();
+            return nextTime - currentTime;
+          })
+          .map((card) => ({
           id: card.id,
           front: card.front.word,
           furigana: card.front.furigana || '',
