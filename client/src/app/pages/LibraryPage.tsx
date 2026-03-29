@@ -6,6 +6,7 @@ import { AnimatedPage } from '../components/AnimatedPage';
 import { CreateDeckModal, DeckData } from '../components/CreateDeckModal';
 import { Pagination } from '../components/Pagination';
 import { motion, AnimatePresence } from 'motion/react';
+import vocabularySeed from '@/data/vocabulary.json';
 
 type FilterType = 'all' | 'english' | 'japanese' | 'favorites';
 
@@ -255,6 +256,12 @@ export function LibraryPage() {
   const prevSearchRef = useRef(persisted.search);
 
   const [myDecks, setMyDecks] = useState<Deck[]>([
+    {
+      id: 'openlang-academic',
+      name: 'OpenLang Tech, Mindset & Campus',
+      wordCount: vocabularySeed.length, progress: 12, language: 'english', icon: '🧠', isFavorite: true,
+      coverImage: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=400',
+    },
     {
       id: 'fruits',
       name: 'Trái Cây',

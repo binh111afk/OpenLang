@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Volume2, ArrowLeft, ArrowRight, CheckCircle, Keyboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import vocabularySeed from '@/data/vocabulary.json';
 
 interface VocabularyCard {
   id: string;
@@ -21,6 +22,19 @@ interface DeckConfig {
   emoji?: string;
   language: 'english' | 'japanese';
   cards: VocabularyCard[];
+}
+
+interface SeedVocabularyItem {
+  word: string;
+  category: string;
+  level: string;
+  ipa: string;
+  details: {
+    definition_vi: string;
+    example_en: string;
+    example_vi: string;
+    synonyms: string[];
+  };
 }
 
 // ── Highlight the keyword inside example sentence ──────────────────────────
@@ -154,8 +168,25 @@ const DEFAULT_DECK: DeckConfig = {
   ],
 };
 
+const OPENLANG_ACADEMIC_DECK: DeckConfig = {
+  id: 'openlang-academic',
+  name: 'OpenLang Tech, Mindset & Campus',
+  emoji: '🧠',
+  language: 'english',
+  cards: (vocabularySeed as SeedVocabularyItem[]).map((item, index) => ({
+    id: `openlang-${index + 1}`,
+    word: item.word,
+    pronunciation: item.ipa,
+    meaning: item.details.definition_vi,
+    example: item.details.example_en,
+    exampleTranslation: item.details.example_vi,
+    language: 'english',
+  })),
+};
+
 function getDeckById(id: string): DeckConfig {
   if (id === 'fruits') return FRUITS_DECK;
+  if (id === 'openlang-academic') return OPENLANG_ACADEMIC_DECK;
   return { ...DEFAULT_DECK, id };
 }
 

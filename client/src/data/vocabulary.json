@@ -1,0 +1,386 @@
+[
+  {
+    "word": "algorithm",
+    "category": "Tech",
+    "level": "B2",
+    "ipa": "/ˈæl.ɡə.rɪ.ðəm/",
+    "details": {
+      "definition_vi": "thuật toán; tập hợp các bước để giải quyết một vấn đề",
+      "example_en": "The developer improved the search algorithm to return more relevant results.",
+      "example_vi": "Lập trình viên đã cải thiện thuật toán tìm kiếm để trả về kết quả phù hợp hơn.",
+      "synonyms": ["procedure", "formula", "method"]
+    }
+  },
+  {
+    "word": "interface",
+    "category": "Tech",
+    "level": "B1",
+    "ipa": "/ˈɪn.tə.feɪs/",
+    "details": {
+      "definition_vi": "giao diện; phần người dùng nhìn thấy và tương tác",
+      "example_en": "A clean interface helps new users learn the app faster.",
+      "example_vi": "Một giao diện gọn gàng giúp người dùng mới học cách dùng ứng dụng nhanh hơn.",
+      "synonyms": ["display", "layout", "front end"]
+    }
+  },
+  {
+    "word": "database",
+    "category": "Tech",
+    "level": "B1",
+    "ipa": "/ˈdeɪ.tə.beɪs/",
+    "details": {
+      "definition_vi": "cơ sở dữ liệu; nơi lưu trữ và tổ chức dữ liệu",
+      "example_en": "The app stores each vocabulary item in a cloud database.",
+      "example_vi": "Ứng dụng lưu mỗi mục từ vựng trong một cơ sở dữ liệu đám mây.",
+      "synonyms": ["data store", "repository", "archive"]
+    }
+  },
+  {
+    "word": "debug",
+    "category": "Tech",
+    "level": "B2",
+    "ipa": "/ˌdiːˈbʌɡ/",
+    "details": {
+      "definition_vi": "gỡ lỗi; tìm và sửa lỗi trong chương trình",
+      "example_en": "We spent two hours trying to debug the login issue.",
+      "example_vi": "Chúng tôi đã dành hai tiếng để cố gỡ lỗi đăng nhập.",
+      "synonyms": ["troubleshoot", "fix", "diagnose"]
+    }
+  },
+  {
+    "word": "deploy",
+    "category": "Tech",
+    "level": "B2",
+    "ipa": "/dɪˈplɔɪ/",
+    "details": {
+      "definition_vi": "triển khai; đưa phần mềm lên môi trường chạy thực tế",
+      "example_en": "The team will deploy the new version after the final test.",
+      "example_vi": "Nhóm sẽ triển khai phiên bản mới sau bài kiểm tra cuối cùng.",
+      "synonyms": ["launch", "release", "publish"]
+    }
+  },
+  {
+    "word": "prototype",
+    "category": "Tech",
+    "level": "B2",
+    "ipa": "/ˈprəʊ.tə.taɪp/",
+    "details": {
+      "definition_vi": "bản mẫu; phiên bản thử nghiệm ban đầu của sản phẩm",
+      "example_en": "Our prototype helped investors understand the product vision.",
+      "example_vi": "Bản mẫu của chúng tôi giúp các nhà đầu tư hiểu rõ tầm nhìn sản phẩm.",
+      "synonyms": ["model", "mock-up", "sample"]
+    }
+  },
+  {
+    "word": "encrypt",
+    "category": "Tech",
+    "level": "C1",
+    "ipa": "/ɪnˈkrɪpt/",
+    "details": {
+      "definition_vi": "mã hóa; biến dữ liệu thành dạng chỉ người có quyền mới đọc được",
+      "example_en": "You should encrypt sensitive user information before storing it.",
+      "example_vi": "Bạn nên mã hóa thông tin người dùng nhạy cảm trước khi lưu trữ.",
+      "synonyms": ["encode", "secure", "cipher"]
+    }
+  },
+  {
+    "word": "bandwidth",
+    "category": "Tech",
+    "level": "C1",
+    "ipa": "/ˈbænd.wɪdθ/",
+    "details": {
+      "definition_vi": "băng thông; khả năng truyền tải dữ liệu trong một khoảng thời gian",
+      "example_en": "Video calls require stable bandwidth to avoid lag.",
+      "example_vi": "Các cuộc gọi video cần băng thông ổn định để tránh giật lag.",
+      "synonyms": ["capacity", "throughput", "transfer rate"]
+    }
+  },
+  {
+    "word": "cognitive",
+    "category": "Psychology",
+    "level": "C1",
+    "ipa": "/ˈkɒɡ.nə.tɪv/",
+    "details": {
+      "definition_vi": "thuộc nhận thức; liên quan đến quá trình suy nghĩ và hiểu biết",
+      "example_en": "Sleep quality can affect cognitive performance in class.",
+      "example_vi": "Chất lượng giấc ngủ có thể ảnh hưởng đến khả năng nhận thức trong lớp.",
+      "synonyms": ["mental", "intellectual", "thinking-related"]
+    }
+  },
+  {
+    "word": "motivation",
+    "category": "Psychology",
+    "level": "B1",
+    "ipa": "/ˌməʊ.tɪˈveɪ.ʃən/",
+    "details": {
+      "definition_vi": "động lực; lý do thúc đẩy ai đó hành động",
+      "example_en": "Clear goals can increase motivation during exam season.",
+      "example_vi": "Mục tiêu rõ ràng có thể tăng động lực trong mùa thi.",
+      "synonyms": ["drive", "incentive", "enthusiasm"]
+    }
+  },
+  {
+    "word": "resilience",
+    "category": "Psychology",
+    "level": "C1",
+    "ipa": "/rɪˈzɪl.i.əns/",
+    "details": {
+      "definition_vi": "sự kiên cường; khả năng phục hồi sau khó khăn",
+      "example_en": "Resilience helps students recover after a disappointing grade.",
+      "example_vi": "Sự kiên cường giúp sinh viên lấy lại tinh thần sau một điểm số thất vọng.",
+      "synonyms": ["toughness", "strength", "adaptability"]
+    }
+  },
+  {
+    "word": "perception",
+    "category": "Psychology",
+    "level": "B2",
+    "ipa": "/pəˈsep.ʃən/",
+    "details": {
+      "definition_vi": "nhận thức; cách một người nhìn nhận hoặc hiểu điều gì đó",
+      "example_en": "Your perception of stress can shape your reaction to it.",
+      "example_vi": "Cách bạn nhận thức về căng thẳng có thể định hình phản ứng của bạn với nó.",
+      "synonyms": ["view", "interpretation", "awareness"]
+    }
+  },
+  {
+    "word": "empathy",
+    "category": "Psychology",
+    "level": "B2",
+    "ipa": "/ˈem.pə.θi/",
+    "details": {
+      "definition_vi": "sự đồng cảm; khả năng hiểu cảm xúc của người khác",
+      "example_en": "Good tutors show empathy when students feel overwhelmed.",
+      "example_vi": "Những gia sư giỏi thể hiện sự đồng cảm khi sinh viên cảm thấy quá tải.",
+      "synonyms": ["compassion", "understanding", "sensitivity"]
+    }
+  },
+  {
+    "word": "anxiety",
+    "category": "Psychology",
+    "level": "B2",
+    "ipa": "/æŋˈzaɪ.ə.ti/",
+    "details": {
+      "definition_vi": "sự lo âu; cảm giác căng thẳng hoặc sợ hãi về điều sắp xảy ra",
+      "example_en": "Presentation anxiety is common among first-year students.",
+      "example_vi": "Lo âu khi thuyết trình là điều phổ biến ở sinh viên năm nhất.",
+      "synonyms": ["worry", "nervousness", "unease"]
+    }
+  },
+  {
+    "word": "habit",
+    "category": "Psychology",
+    "level": "A2",
+    "ipa": "/ˈhæb.ɪt/",
+    "details": {
+      "definition_vi": "thói quen; hành động lặp đi lặp lại thường xuyên",
+      "example_en": "Reviewing words every night became a useful habit.",
+      "example_vi": "Việc ôn từ mỗi tối đã trở thành một thói quen hữu ích.",
+      "synonyms": ["routine", "practice", "custom"]
+    }
+  },
+  {
+    "word": "mindset",
+    "category": "Psychology",
+    "level": "B2",
+    "ipa": "/ˈmaɪnd.set/",
+    "details": {
+      "definition_vi": "tư duy; cách nghĩ hoặc thái độ ổn định của một người",
+      "example_en": "A growth mindset encourages students to learn from mistakes.",
+      "example_vi": "Tư duy phát triển khuyến khích sinh viên học từ sai lầm.",
+      "synonyms": ["attitude", "outlook", "mentality"]
+    }
+  },
+  {
+    "word": "attention span",
+    "category": "Psychology",
+    "level": "B2",
+    "ipa": "/əˈten.ʃən spæn/",
+    "details": {
+      "definition_vi": "khả năng tập trung; khoảng thời gian một người có thể chú ý liên tục",
+      "example_en": "Short study sessions can help if your attention span is limited.",
+      "example_vi": "Các buổi học ngắn có thể hữu ích nếu khả năng tập trung của bạn bị hạn chế.",
+      "synonyms": ["focus", "concentration", "mental endurance"]
+    }
+  },
+  {
+    "word": "burnout",
+    "category": "Psychology",
+    "level": "C1",
+    "ipa": "/ˈbɜːn.aʊt/",
+    "details": {
+      "definition_vi": "kiệt sức; trạng thái mệt mỏi nghiêm trọng do căng thẳng kéo dài",
+      "example_en": "Ignoring rest days can lead to academic burnout.",
+      "example_vi": "Bỏ qua những ngày nghỉ có thể dẫn đến kiệt sức trong học tập.",
+      "synonyms": ["exhaustion", "fatigue", "collapse"]
+    }
+  },
+  {
+    "word": "deadline",
+    "category": "Student Life",
+    "level": "B1",
+    "ipa": "/ˈded.laɪn/",
+    "details": {
+      "definition_vi": "hạn chót; thời điểm cuối cùng phải hoàn thành việc gì đó",
+      "example_en": "I finished the essay one day before the deadline.",
+      "example_vi": "Tôi hoàn thành bài luận một ngày trước hạn chót.",
+      "synonyms": ["due date", "cutoff", "time limit"]
+    }
+  },
+  {
+    "word": "scholarship",
+    "category": "Student Life",
+    "level": "B2",
+    "ipa": "/ˈskɒl.ə.ʃɪp/",
+    "details": {
+      "definition_vi": "học bổng; khoản hỗ trợ tài chính cho việc học",
+      "example_en": "She received a scholarship for her excellent academic record.",
+      "example_vi": "Cô ấy nhận được học bổng nhờ thành tích học tập xuất sắc.",
+      "synonyms": ["grant", "financial aid", "fellowship"]
+    }
+  },
+  {
+    "word": "curriculum",
+    "category": "Student Life",
+    "level": "B2",
+    "ipa": "/kəˈrɪk.jə.ləm/",
+    "details": {
+      "definition_vi": "chương trình học; nội dung các môn và kỹ năng được giảng dạy",
+      "example_en": "The curriculum now includes more practical digital skills.",
+      "example_vi": "Chương trình học hiện nay bao gồm nhiều kỹ năng số thực hành hơn.",
+      "synonyms": ["syllabus", "course of study", "program"]
+    }
+  },
+  {
+    "word": "seminar",
+    "category": "Student Life",
+    "level": "B2",
+    "ipa": "/ˈsem.ɪ.nɑːr/",
+    "details": {
+      "definition_vi": "hội thảo chuyên đề; buổi học thảo luận theo nhóm nhỏ",
+      "example_en": "The seminar encouraged students to debate current issues.",
+      "example_vi": "Buổi hội thảo khuyến khích sinh viên tranh luận về các vấn đề thời sự.",
+      "synonyms": ["workshop", "session", "discussion class"]
+    }
+  },
+  {
+    "word": "internship",
+    "category": "Student Life",
+    "level": "B2",
+    "ipa": "/ˈɪn.tɜːn.ʃɪp/",
+    "details": {
+      "definition_vi": "thực tập; giai đoạn làm việc để học kinh nghiệm nghề nghiệp",
+      "example_en": "Her summer internship gave her real experience in product design.",
+      "example_vi": "Kỳ thực tập mùa hè đã mang lại cho cô ấy kinh nghiệm thực tế về thiết kế sản phẩm.",
+      "synonyms": ["placement", "training", "apprenticeship"]
+    }
+  },
+  {
+    "word": "tuition",
+    "category": "Student Life",
+    "level": "B2",
+    "ipa": "/tjuˈɪʃ.ən/",
+    "details": {
+      "definition_vi": "học phí; số tiền phải trả cho việc học",
+      "example_en": "Many students work part-time to cover tuition costs.",
+      "example_vi": "Nhiều sinh viên làm thêm để chi trả học phí.",
+      "synonyms": ["school fee", "instruction fee", "education cost"]
+    }
+  },
+  {
+    "word": "assignment",
+    "category": "Student Life",
+    "level": "B1",
+    "ipa": "/əˈsaɪn.mənt/",
+    "details": {
+      "definition_vi": "bài tập được giao; nhiệm vụ học tập cần hoàn thành",
+      "example_en": "Our group assignment is due on Friday afternoon.",
+      "example_vi": "Bài tập nhóm của chúng tôi phải nộp vào chiều thứ Sáu.",
+      "synonyms": ["task", "project", "homework"]
+    }
+  },
+  {
+    "word": "lecture",
+    "category": "Student Life",
+    "level": "B1",
+    "ipa": "/ˈlek.tʃər/",
+    "details": {
+      "definition_vi": "bài giảng; buổi học mà giảng viên trình bày kiến thức",
+      "example_en": "I recorded the lecture so I could review it later.",
+      "example_vi": "Tôi đã ghi âm bài giảng để có thể xem lại sau.",
+      "synonyms": ["talk", "class", "presentation"]
+    }
+  },
+  {
+    "word": "collaborate",
+    "category": "Student Life",
+    "level": "B2",
+    "ipa": "/kəˈlæb.ə.reɪt/",
+    "details": {
+      "definition_vi": "hợp tác; làm việc cùng người khác để đạt mục tiêu chung",
+      "example_en": "Students often collaborate on research presentations.",
+      "example_vi": "Sinh viên thường hợp tác trong các bài thuyết trình nghiên cứu.",
+      "synonyms": ["cooperate", "work together", "team up"]
+    }
+  },
+  {
+    "word": "productivity",
+    "category": "Student Life",
+    "level": "B2",
+    "ipa": "/ˌprɒd.ʌkˈtɪv.ə.ti/",
+    "details": {
+      "definition_vi": "năng suất; mức độ làm việc hiệu quả trong một khoảng thời gian",
+      "example_en": "Turning off notifications improved my productivity during revision.",
+      "example_vi": "Tắt thông báo đã cải thiện năng suất của tôi trong lúc ôn tập.",
+      "synonyms": ["efficiency", "output", "effectiveness"]
+    }
+  },
+  {
+    "word": "balance",
+    "category": "Student Life",
+    "level": "B1",
+    "ipa": "/ˈbæl.əns/",
+    "details": {
+      "definition_vi": "sự cân bằng; trạng thái phân bổ hợp lý giữa nhiều việc",
+      "example_en": "It is hard to balance study, work, and personal life.",
+      "example_vi": "Rất khó để cân bằng việc học, công việc và đời sống cá nhân.",
+      "synonyms": ["stability", "equilibrium", "harmony"]
+    }
+  },
+  {
+    "word": "revise",
+    "category": "Student Life",
+    "level": "B1",
+    "ipa": "/rɪˈvaɪz/",
+    "details": {
+      "definition_vi": "ôn tập; xem lại kiến thức để chuẩn bị cho bài kiểm tra",
+      "example_en": "I need to revise my notes before tomorrow's quiz.",
+      "example_vi": "Tôi cần ôn lại ghi chú trước bài kiểm tra ngày mai.",
+      "synonyms": ["review", "study", "go over"]
+    }
+  },
+  {
+    "word": "concentration",
+    "category": "Psychology",
+    "level": "B2",
+    "ipa": "/ˌkɒn.sənˈtreɪ.ʃən/",
+    "details": {
+      "definition_vi": "sự tập trung; khả năng dồn sự chú ý vào một việc",
+      "example_en": "Noise in the dorm can reduce concentration while reading.",
+      "example_vi": "Tiếng ồn trong ký túc xá có thể làm giảm sự tập trung khi đọc sách.",
+      "synonyms": ["focus", "attention", "absorption"]
+    }
+  },
+  {
+    "word": "well-being",
+    "category": "Psychology",
+    "level": "B2",
+    "ipa": "/ˌwel ˈbiː.ɪŋ/",
+    "details": {
+      "definition_vi": "sức khỏe tinh thần và thể chất; trạng thái khỏe mạnh tổng thể",
+      "example_en": "Regular exercise supports both academic performance and well-being.",
+      "example_vi": "Tập thể dục thường xuyên hỗ trợ cả thành tích học tập lẫn sức khỏe tổng thể.",
+      "synonyms": ["welfare", "health", "wellness"]
+    }
+  }
+]
