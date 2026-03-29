@@ -37,29 +37,6 @@ interface SeedVocabularyItem {
   };
 }
 
-const CATEGORY_IMAGE_POOL: Record<string, string[]> = {
-  Tech: [
-    'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    'https://images.unsplash.com/photo-1518770660439-4636190af475?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-  ],
-  Psychology: [
-    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    'https://images.unsplash.com/photo-1491841550275-ad7854e35ca6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-  ],
-  'Student Life': [
-    'https://images.unsplash.com/photo-1523240795612-9a054b0db644?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    'https://images.unsplash.com/photo-1498243691581-b145c3f54a5a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-    'https://images.unsplash.com/photo-1501504905252-473c47e087f8?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080',
-  ],
-};
-
-function getVocabularyImage(category: string, index: number) {
-  const pool = CATEGORY_IMAGE_POOL[category] || CATEGORY_IMAGE_POOL['Student Life'];
-  return pool[index % pool.length];
-}
-
 // ── Highlight the keyword inside example sentence ──────────────────────────
 function HighlightedExample({ text, keyword }: { text: string; keyword: string }) {
   const lowerText = text.toLowerCase();
@@ -204,7 +181,6 @@ const OPENLANG_ACADEMIC_DECK: DeckConfig = {
     example: item.details.example_en,
     exampleTranslation: item.details.example_vi,
     language: 'english',
-    image: getVocabularyImage(item.category, index),
   })),
 };
 
@@ -225,7 +201,7 @@ export function StudyPage() {
   const currentCard = deckData.cards[currentCardIndex];
   const progress = ((currentCardIndex + 1) / deckData.cards.length) * 100;
   const isLastCard = currentCardIndex === deckData.cards.length - 1;
-  const usesImageLayout = Boolean(currentCard.image);
+  const isFruitsDeck = deckId === 'fruits';
 
   const playAudio = useCallback((text: string) => {
     if ('speechSynthesis' in window) {
@@ -347,8 +323,8 @@ export function StudyPage() {
               transition={{ duration: 0.34, ease: [0.2, 0.8, 0.2, 1] }}
               className="w-full bg-white/95 dark:bg-gray-900/95 rounded-3xl border border-purple-200/80 dark:border-purple-800 shadow-[0_26px_72px_-42px_rgba(88,28,135,0.45)] overflow-hidden min-h-[58vh] sm:min-h-[62vh] lg:min-h-[66vh] max-h-[74vh]"
             >
-              {usesImageLayout ? (
-                /* ── Image-led cards: 40/60 image + content ── */
+              {isFruitsDeck && currentCard.image ? (
+                /* ── Fruits: 40/60 image + content ── */
                 <div className="h-full min-h-[inherit] p-5 sm:p-6 grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-5">
                   {/* Image */}
                   <div className="md:col-span-2 min-h-56 md:min-h-full">
