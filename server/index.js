@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const aiGenerateDeckHandler = require("../api/ai-generate-deck.js");
 const aiSuggestCardHandler = require("../api/ai-suggest-card.js");
 const aiTranslateHandler = require("../api/ai-translate.js");
+const aiBreakdownHandler = require("../api/ai-breakdown.js");
 const flashcardsHandler = require("../api/flashcards.js");
 const flashcardImagesHandler = require("../api/flashcard-images.js");
 const libraryHandler = require("../api/library.js");
@@ -41,6 +42,10 @@ const server = http.createServer((req, res) => {
     return aiTranslateHandler(req, res);
   }
 
+  if (requestUrl.pathname === "/api/ai-breakdown") {
+    return aiBreakdownHandler(req, res);
+  }
+
   if (requestUrl.pathname === "/api/flashcard-images") {
     return flashcardImagesHandler(req, res);
   }
@@ -69,7 +74,7 @@ const server = http.createServer((req, res) => {
     message: "OpenLang server is running",
     method: req.method,
     url: req.url,
-    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images", "/api/user-progress", "/api/auth-login", "/api/auth-register", "/api/profile", "/api/ai-generate-deck", "/api/ai-suggest-card", "/api/ai-translate"],
+    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images", "/api/user-progress", "/api/auth-login", "/api/auth-register", "/api/profile", "/api/ai-generate-deck", "/api/ai-suggest-card", "/api/ai-translate", "/api/ai-breakdown"],
   });
 });
 

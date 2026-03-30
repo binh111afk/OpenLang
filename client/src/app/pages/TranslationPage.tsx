@@ -1,4 +1,4 @@
-import { ArrowLeftRight, X, Mic, Volume2, Copy, Plus, Camera, Sparkles } from 'lucide-react';
+import { ArrowLeftRight, X, Mic, Volume2, Copy, Plus, Camera, Sparkles, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { AnimatedPage } from '../components/AnimatedPage';
 import { useTheme } from '../contexts/ThemeContext';
@@ -11,25 +11,22 @@ type Language = 'vietnamese' | 'english' | 'japanese';
 interface VocabBreakdown {
   word: string;
   reading?: string;
-  meaning: string;
-  partOfSpeech: string;
+  meaning_vi: string;
+  pos: string;
   synonyms: string[];
-  shortExample: string;
+  usage_note: string;
 }
 
-interface TranslationAlternatives {
-  formal: string;
-  casual: string;
-  slang: string;
-}
-
-interface TranslateResponse {
-  translatedText: string;
-  alternatives: TranslationAlternatives;
-  breakdown: VocabBreakdown[];
-  isSentence: boolean;
+interface BreakdownResponse {
+  analysis: VocabBreakdown[];
   provider: string;
 }
+
+const LINGVA_LANGUAGE_CODE: Record<Language, string> = {
+  vietnamese: 'vi',
+  english: 'en',
+  japanese: 'ja',
+};
 
 export function TranslationPage() {
   const { isDarkMode } = useTheme();
@@ -37,10 +34,11 @@ export function TranslationPage() {
   const [targetLang, setTargetLang] = useState<Language>('japanese');
   const [inputText, setInputText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
-  const [alternatives, setAlternatives] = useState<TranslationAlternatives | null>(null);
   const [vocabBreakdown, setVocabBreakdown] = useState<VocabBreakdown[]>([]);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [translateError, setTranslateError] = useState('');
+  const [analysisError, setAnalysisError] = useState('');
   const [lastProvider, setLastProvider] = useState('');
 
   const languageOptions = [
@@ -59,34 +57,69 @@ export function TranslationPage() {
     if (!inputText.trim()) return;
 
     setTranslateError('');
+    setAnalysisError('');
     setIsTranslating(true);
+    setIsAnalyzing(false);
+    setVocabBreakdown([]);
+    setLastProvider('');
+
+    const sourceCode = LINGVA_LANGUAGE_CODE[sourceLang];
+    const targetCode = LINGVA_LANGUAGE_CODE[targetLang];
+    const encodedText = encodeURIComponent(inputText.trim());
+
+    let translatedByLingva = '';
 
     try {
-      const payload = await fetchJson<TranslateResponse>('/api/ai-translate', {
+      const lingvaResponse = await fetch(
+        `https://lingva.ml/api/v1/${sourceCode}/${targetCode}/${encodedText}`,
+      );
+
+      if (!lingvaResponse.ok) {
+        throw new Error(`Lingva translation failed with status ${lingvaResponse.status}.`);
+      }
+
+      const lingvaPayload = (await lingvaResponse.json()) as { translation?: string };
+      translatedByLingva = String(lingvaPayload.translation || '').trim();
+
+      if (!translatedByLingva) {
+        throw new Error('Lingva did not return a translated sentence.');
+      }
+
+      // Stage 1 complete: show translation immediately.
+      setTranslatedText(translatedByLingva);
+    } catch (error) {
+      setTranslateError(error instanceof Error ? error.message : 'Không thể dịch văn bản.');
+      setTranslatedText('');
+      setIsTranslating(false);
+      return;
+    }
+
+    setIsTranslating(false);
+    setIsAnalyzing(true);
+
+    try {
+      const breakdownPayload = await fetchJson<BreakdownResponse>('/api/ai-breakdown', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          text: inputText.trim(),
+          sourceText: inputText.trim(),
+          translatedText: translatedByLingva,
           sourceLang,
           targetLang,
         }),
       });
 
-      setTranslatedText(payload.translatedText || '');
-      setAlternatives(payload.alternatives || null);
-      setVocabBreakdown(payload.isSentence ? payload.breakdown || [] : []);
-      setLastProvider(payload.provider || '');
+      setVocabBreakdown(Array.isArray(breakdownPayload.analysis) ? breakdownPayload.analysis : []);
+      setLastProvider(breakdownPayload.provider || 'groq');
     } catch (error) {
-      setTranslateError(error instanceof Error ? error.message : 'Không thể dịch văn bản.');
-      setTranslatedText('');
-      setAlternatives(null);
-      setVocabBreakdown([]);
+      setAnalysisError(error instanceof Error ? error.message : 'Không thể bóc tách câu.');
       setLastProvider('');
-    } finally {
-      setIsTranslating(false);
+      setVocabBreakdown([]);
     }
+
+    setIsAnalyzing(false);
   };
 
   const swapLanguages = () => {
@@ -100,9 +133,9 @@ export function TranslationPage() {
   const clearInput = () => {
     setInputText('');
     setTranslatedText('');
-    setAlternatives(null);
     setVocabBreakdown([]);
     setTranslateError('');
+    setAnalysisError('');
     setLastProvider('');
   };
 
@@ -215,10 +248,10 @@ export function TranslationPage() {
 
             <button
               onClick={handleTranslate}
-              disabled={!inputText.trim() || isTranslating}
+              disabled={!inputText.trim() || isTranslating || isAnalyzing}
               className="w-full py-4 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600 disabled:from-gray-300 disabled:to-gray-300 dark:disabled:from-gray-700 dark:disabled:to-gray-700 text-white font-semibold rounded-2xl transition-all hover:shadow-lg disabled:cursor-not-allowed"
             >
-              {isTranslating ? 'Đang dịch...' : 'Dịch ngay'}
+              {isTranslating ? 'Đang dịch với Lingva...' : isAnalyzing ? 'Đang bóc tách với Groq...' : 'Dịch ngay'}
             </button>
 
             {translateError ? (
@@ -248,23 +281,6 @@ export function TranslationPage() {
 
             {translatedText && (
               <div className="space-y-3">
-                {alternatives ? (
-                  <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-3">
-                    <div className="rounded-xl border border-purple-200 bg-white px-3 py-2 dark:border-purple-800 dark:bg-gray-900">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-purple-500 dark:text-purple-400">Trang trọng</p>
-                      <p className="mt-1 text-gray-700 dark:text-gray-300">{alternatives.formal || '-'}</p>
-                    </div>
-                    <div className="rounded-xl border border-purple-200 bg-white px-3 py-2 dark:border-purple-800 dark:bg-gray-900">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-purple-500 dark:text-purple-400">Thân mật</p>
-                      <p className="mt-1 text-gray-700 dark:text-gray-300">{alternatives.casual || '-'}</p>
-                    </div>
-                    <div className="rounded-xl border border-purple-200 bg-white px-3 py-2 dark:border-purple-800 dark:bg-gray-900">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-purple-500 dark:text-purple-400">Slang</p>
-                      <p className="mt-1 text-gray-700 dark:text-gray-300">{alternatives.slang || '-'}</p>
-                    </div>
-                  </div>
-                ) : null}
-
                 <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={playAudio}
@@ -299,7 +315,23 @@ export function TranslationPage() {
           </div>
         </div>
 
+        {analysisError ? (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
+            {analysisError}
+          </div>
+        ) : null}
+
         {/* Sentence Breakdown Section */}
+        {translatedText && isAnalyzing && (
+          <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-8 shadow-sm">
+            <div className="flex items-center gap-3 mb-2">
+              <Loader2 className="w-5 h-5 text-purple-500 animate-spin" />
+              <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Bóc Tách Câu</h2>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Groq đang phân tích từ loại, đồng nghĩa và ghi chú sử dụng...</p>
+          </div>
+        )}
+
         {vocabBreakdown.length > 0 && (
           <div className="bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-8 shadow-sm">
             <div className="flex items-center gap-3 mb-6">
@@ -334,9 +366,9 @@ export function TranslationPage() {
                   )}
                   
                   <div className="space-y-1">
-                    <p className="text-gray-700 dark:text-gray-300 font-medium">{vocab.meaning}</p>
+                    <p className="text-gray-700 dark:text-gray-300 font-medium">{vocab.meaning_vi}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-full inline-block">
-                      {vocab.partOfSpeech}
+                      {vocab.pos}
                     </p>
 
                     {vocab.synonyms?.length ? (
@@ -352,9 +384,9 @@ export function TranslationPage() {
                       </div>
                     ) : null}
 
-                    {vocab.shortExample ? (
+                    {vocab.usage_note ? (
                       <p className="pt-2 text-xs text-gray-500 dark:text-gray-400">
-                        VD: {vocab.shortExample}
+                        {vocab.usage_note}
                       </p>
                     ) : null}
                   </div>
