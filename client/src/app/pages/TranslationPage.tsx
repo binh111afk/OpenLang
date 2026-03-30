@@ -13,10 +13,19 @@ interface VocabBreakdown {
   reading?: string;
   meaning: string;
   partOfSpeech: string;
+  synonyms: string[];
+  shortExample: string;
+}
+
+interface TranslationAlternatives {
+  formal: string;
+  casual: string;
+  slang: string;
 }
 
 interface TranslateResponse {
   translatedText: string;
+  alternatives: TranslationAlternatives;
   breakdown: VocabBreakdown[];
   isSentence: boolean;
   provider: string;
@@ -28,6 +37,7 @@ export function TranslationPage() {
   const [targetLang, setTargetLang] = useState<Language>('japanese');
   const [inputText, setInputText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
+  const [alternatives, setAlternatives] = useState<TranslationAlternatives | null>(null);
   const [vocabBreakdown, setVocabBreakdown] = useState<VocabBreakdown[]>([]);
   const [isTranslating, setIsTranslating] = useState(false);
   const [translateError, setTranslateError] = useState('');
@@ -65,11 +75,13 @@ export function TranslationPage() {
       });
 
       setTranslatedText(payload.translatedText || '');
+      setAlternatives(payload.alternatives || null);
       setVocabBreakdown(payload.isSentence ? payload.breakdown || [] : []);
       setLastProvider(payload.provider || '');
     } catch (error) {
       setTranslateError(error instanceof Error ? error.message : 'Không thể dịch văn bản.');
       setTranslatedText('');
+      setAlternatives(null);
       setVocabBreakdown([]);
       setLastProvider('');
     } finally {
@@ -88,6 +100,7 @@ export function TranslationPage() {
   const clearInput = () => {
     setInputText('');
     setTranslatedText('');
+    setAlternatives(null);
     setVocabBreakdown([]);
     setTranslateError('');
     setLastProvider('');
@@ -234,7 +247,25 @@ export function TranslationPage() {
             </div>
 
             {translatedText && (
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="space-y-3">
+                {alternatives ? (
+                  <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-3">
+                    <div className="rounded-xl border border-purple-200 bg-white px-3 py-2 dark:border-purple-800 dark:bg-gray-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-purple-500 dark:text-purple-400">Trang trọng</p>
+                      <p className="mt-1 text-gray-700 dark:text-gray-300">{alternatives.formal || '-'}</p>
+                    </div>
+                    <div className="rounded-xl border border-purple-200 bg-white px-3 py-2 dark:border-purple-800 dark:bg-gray-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-purple-500 dark:text-purple-400">Thân mật</p>
+                      <p className="mt-1 text-gray-700 dark:text-gray-300">{alternatives.casual || '-'}</p>
+                    </div>
+                    <div className="rounded-xl border border-purple-200 bg-white px-3 py-2 dark:border-purple-800 dark:bg-gray-900">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-purple-500 dark:text-purple-400">Slang</p>
+                      <p className="mt-1 text-gray-700 dark:text-gray-300">{alternatives.slang || '-'}</p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={playAudio}
                   className="flex-1 min-w-[120px] py-3 px-4 bg-white dark:bg-gray-800 hover:bg-purple-100 dark:hover:bg-purple-950 border-2 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 font-semibold rounded-xl transition-all flex items-center justify-center gap-2"
@@ -262,6 +293,7 @@ export function TranslationPage() {
                     AI: {lastProvider}
                   </div>
                 ) : null}
+              </div>
               </div>
             )}
           </div>
@@ -306,6 +338,25 @@ export function TranslationPage() {
                     <p className="text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-3 py-1 rounded-full inline-block">
                       {vocab.partOfSpeech}
                     </p>
+
+                    {vocab.synonyms?.length ? (
+                      <div className="flex flex-wrap gap-1.5 pt-2">
+                        {vocab.synonyms.map((synonym, synIndex) => (
+                          <span
+                            key={`${vocab.word}-syn-${synIndex}`}
+                            className="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-medium text-purple-600 dark:bg-purple-900/40 dark:text-purple-300"
+                          >
+                            {synonym}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {vocab.shortExample ? (
+                      <p className="pt-2 text-xs text-gray-500 dark:text-gray-400">
+                        VD: {vocab.shortExample}
+                      </p>
+                    ) : null}
                   </div>
 
                   <button className="mt-3 w-full py-2 bg-purple-600 text-white text-sm font-medium rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-purple-700">

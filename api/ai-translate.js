@@ -20,16 +20,32 @@ function looksLikeSentence(text) {
 }
 
 function normalizeBreakdownItem(item) {
+  const synonymsRaw = Array.isArray(item?.synonyms) ? item.synonyms : [];
+  const synonyms = synonymsRaw
+    .map((syn) => String(syn || '').trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
   return {
     word: String(item?.word || '').trim(),
     reading: String(item?.reading || '').trim() || undefined,
     meaning: String(item?.meaning || '').trim(),
     partOfSpeech: String(item?.partOfSpeech || '').trim() || 'Khác',
+    synonyms,
+    shortExample: String(item?.shortExample || '').trim(),
   };
 }
 
 function normalizeResult(result, isSentence) {
   const translatedText = String(result?.translatedText || '').trim();
+  const alternativesRaw = result?.alternatives && typeof result.alternatives === 'object'
+    ? result.alternatives
+    : {};
+  const alternatives = {
+    formal: String(alternativesRaw.formal || '').trim(),
+    casual: String(alternativesRaw.casual || '').trim(),
+    slang: String(alternativesRaw.slang || '').trim(),
+  };
   const breakdownRaw = Array.isArray(result?.breakdown) ? result.breakdown : [];
   const breakdown = isSentence
     ? breakdownRaw
@@ -39,6 +55,7 @@ function normalizeResult(result, isSentence) {
 
   return {
     translatedText,
+    alternatives,
     breakdown,
   };
 }
@@ -86,12 +103,19 @@ You are a translation assistant for a language learning app.
 Return ONLY valid JSON with this exact shape:
 {
   "translatedText": "string",
+  "alternatives": {
+    "formal": "string",
+    "casual": "string",
+    "slang": "string"
+  },
   "breakdown": [
     {
       "word": "string",
       "reading": "string or empty",
       "meaning": "string",
-      "partOfSpeech": "string"
+      "partOfSpeech": "string",
+      "synonyms": ["string", "string", "string"],
+      "shortExample": "string"
     }
   ]
 }
@@ -101,11 +125,16 @@ Task:
 - Input text: ${text}
 
 Rules:
-- translatedText must be natural and accurate in target language.
+- translatedText must be NATURAL SPEAKING (daily conversation style), not literal dictionary translation.
+- Prefer COMMONLY USED words over rare/archaic words.
+- Example for Vietnamese->English: prefer "stupid" or "dumb" over less common choices like "dull" when context matches.
+- alternatives.formal, alternatives.casual, alternatives.slang must contain 3 different expression styles in target language.
 - If input is a sentence (${isSentence ? 'YES' : 'NO'}):
   - Provide useful sentence decomposition in breakdown.
   - IMPORTANT: breakdown.word must be words/chunks taken directly from translatedText, not from source text.
   - breakdown items should follow the same order as words/chunks in translatedText when possible.
+  - For each breakdown item, provide at least 2-3 useful synonyms in synonyms.
+  - For each breakdown item, provide one short example sentence in target language (shortExample).
 - If input is NOT a sentence:
   - Set breakdown to [] exactly.
 - Keep meaning in Vietnamese for easier learning.
@@ -121,6 +150,7 @@ IMPORTANT CORRECTION:
 - The previous breakdown was invalid.
 - Every breakdown.word MUST be copied from translatedText (exact word/chunk from translated sentence).
 - Never use source-language tokens in breakdown.word.
+- Keep translatedText and alternatives in natural speaking style.
 - Return JSON only.
 `.trim();
 }
@@ -214,6 +244,7 @@ module.exports = async (req, res) => {
 
     return sendJson(res, 200, {
       translatedText: normalized.translatedText,
+      alternatives: normalized.alternatives,
       breakdown: normalized.breakdown,
       isSentence,
       provider,
