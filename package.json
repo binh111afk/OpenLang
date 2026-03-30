@@ -13,6 +13,7 @@
     "build:client": "npm --prefix client run build",
     "dev:server": "npm --prefix server run dev",
     "seed:admin": "node scripts/ensure-default-admin.cjs",
+    "debug:db": "node scripts/debug-db.js",
     "sync:vocab-images": "node scripts/sync-pixabay-images.cjs"
   },
   "dependencies": {
