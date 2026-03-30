@@ -36,6 +36,43 @@ function normalizeBreakdownItem(item) {
   };
 }
 
+function createFallbackBreakdown(translatedText, targetLang) {
+  const value = String(translatedText || '').trim();
+  if (!value) {
+    return [];
+  }
+
+  if (targetLang === 'japanese') {
+    const chunks = value
+      .split(/[\s、。！？,.!?:;]+/)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+
+    return chunks.map((chunk) => ({
+      word: chunk,
+      meaning: 'Xem theo ngữ cảnh',
+      partOfSpeech: 'Khác',
+      synonyms: [],
+      shortExample: '',
+    }));
+  }
+
+  const chunks = value
+    .split(/[\s,.!?;:()"'“”‘’\-]+/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+
+  return chunks.map((chunk) => ({
+    word: chunk,
+    meaning: 'Xem theo ngữ cảnh',
+    partOfSpeech: 'Khác',
+    synonyms: [],
+    shortExample: '',
+  }));
+}
+
 function normalizeResult(result, isSentence) {
   const translatedText = String(result?.translatedText || '').trim();
   const alternativesRaw = result?.alternatives && typeof result.alternatives === 'object'
@@ -155,6 +192,36 @@ IMPORTANT CORRECTION:
 `.trim();
 }
 
+function buildBreakdownRepairPrompt({ translatedText, sourceText, targetLang }) {
+  return `
+You are fixing a translation breakdown for a language-learning app.
+
+Return ONLY valid JSON with this exact shape:
+{
+  "breakdown": [
+    {
+      "word": "string",
+      "reading": "string or empty",
+      "meaning": "string",
+      "partOfSpeech": "string",
+      "synonyms": ["string", "string", "string"],
+      "shortExample": "string"
+    }
+  ]
+}
+
+Constraints:
+- translatedText (target language: ${toLabel(targetLang)}): ${translatedText}
+- sourceText: ${sourceText}
+- breakdown.word MUST be copied from translatedText chunks only.
+- Do not invent words not present in translatedText.
+- Keep meaning in Vietnamese.
+- Provide 2-3 synonyms when possible.
+- shortExample should be short and in target language.
+- Return JSON only.
+`.trim();
+}
+
 function validatePayload(payload) {
   const text = String(payload?.text || '').trim();
   const sourceLang = String(payload?.sourceLang || '').trim();
@@ -203,11 +270,12 @@ module.exports = async (req, res) => {
 
     let normalized = normalizeResult(result, isSentence);
 
-    if (
-      isSentence &&
-      normalized.breakdown.length > 0 &&
-      !breakdownAlignsWithTranslatedText(normalized.translatedText, normalized.breakdown, targetLang)
-    ) {
+    const hasMisalignedBreakdown =
+      isSentence
+      && normalized.breakdown.length > 0
+      && !breakdownAlignsWithTranslatedText(normalized.translatedText, normalized.breakdown, targetLang);
+
+    if (hasMisalignedBreakdown) {
       const retried = await generateAIJson(
         buildRetryPrompt(
           buildPrompt({
@@ -231,15 +299,43 @@ module.exports = async (req, res) => {
       });
     }
 
+    const stillMisaligned =
+      isSentence
+      && normalized.breakdown.length > 0
+      && !breakdownAlignsWithTranslatedText(normalized.translatedText, normalized.breakdown, targetLang);
+
+    if (isSentence && (stillMisaligned || !normalized.breakdown.length)) {
+      try {
+        const repair = await generateAIJson(
+          buildBreakdownRepairPrompt({
+            translatedText: normalized.translatedText,
+            sourceText: text,
+            targetLang,
+          }),
+        );
+
+        provider = repair.provider;
+        const repairedRaw = Array.isArray(repair.result?.breakdown)
+          ? repair.result.breakdown
+          : [];
+        const repairedBreakdown = repairedRaw
+          .map(normalizeBreakdownItem)
+          .filter((item) => item.word && item.meaning);
+
+        if (breakdownAlignsWithTranslatedText(normalized.translatedText, repairedBreakdown, targetLang)) {
+          normalized.breakdown = repairedBreakdown;
+        }
+      } catch {
+        // Keep graceful fallback below.
+      }
+    }
+
     if (
-      isSentence &&
-      normalized.breakdown.length > 0 &&
-      !breakdownAlignsWithTranslatedText(normalized.translatedText, normalized.breakdown, targetLang)
+      isSentence
+      && (!normalized.breakdown.length
+        || !breakdownAlignsWithTranslatedText(normalized.translatedText, normalized.breakdown, targetLang))
     ) {
-      return sendJson(res, 422, {
-        error: 'AI breakdown is not aligned with translated sentence.',
-        provider,
-      });
+      normalized.breakdown = createFallbackBreakdown(normalized.translatedText, targetLang);
     }
 
     return sendJson(res, 200, {
