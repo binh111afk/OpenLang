@@ -4,6 +4,7 @@ import { AnimatedPage } from '../components/AnimatedPage';
 import { useTheme } from '../contexts/ThemeContext';
 import { CustomDropdown } from '../components/CustomDropdown';
 import { Tooltip } from '../components/Tooltip';
+import { fetchJson } from '@/utils/api';
 
 type Language = 'vietnamese' | 'english' | 'japanese';
 
@@ -14,6 +15,13 @@ interface VocabBreakdown {
   partOfSpeech: string;
 }
 
+interface TranslateResponse {
+  translatedText: string;
+  breakdown: VocabBreakdown[];
+  isSentence: boolean;
+  provider: string;
+}
+
 export function TranslationPage() {
   const { isDarkMode } = useTheme();
   const [sourceLang, setSourceLang] = useState<Language>('vietnamese');
@@ -22,6 +30,8 @@ export function TranslationPage() {
   const [translatedText, setTranslatedText] = useState('');
   const [vocabBreakdown, setVocabBreakdown] = useState<VocabBreakdown[]>([]);
   const [isTranslating, setIsTranslating] = useState(false);
+  const [translateError, setTranslateError] = useState('');
+  const [lastProvider, setLastProvider] = useState('');
 
   const languageOptions = [
     { value: 'vietnamese', label: '🇻🇳 Tiếng Việt' },
@@ -35,41 +45,36 @@ export function TranslationPage() {
     { value: 'japanese' as const, label: '日本語', flag: '🇯🇵', code: 'JP' },
   ];
 
-  // Mock translation function
-  const handleTranslate = () => {
+  const handleTranslate = async () => {
     if (!inputText.trim()) return;
-    
+
+    setTranslateError('');
     setIsTranslating(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      // Mock data based on target language
-      if (targetLang === 'japanese') {
-        setTranslatedText('私は毎日日本語を勉強します。');
-        setVocabBreakdown([
-          { word: '私', reading: 'わたし', meaning: 'Tôi', partOfSpeech: 'Đại từ' },
-          { word: '毎日', reading: 'まいにち', meaning: 'Mỗi ngày', partOfSpeech: 'Danh từ' },
-          { word: '日本語', reading: 'にほんご', meaning: 'Tiếng Nhật', partOfSpeech: 'Danh từ' },
-          { word: '勉強', reading: 'べんきょう', meaning: 'Học tập', partOfSpeech: 'Danh từ/Động từ' },
-          { word: 'します', reading: 'します', meaning: 'Làm (kính ngữ)', partOfSpeech: 'Động từ' },
-        ]);
-      } else if (targetLang === 'english') {
-        setTranslatedText('I study Japanese every day.');
-        setVocabBreakdown([
-          { word: 'study', meaning: 'Học tập', partOfSpeech: 'Verb' },
-          { word: 'Japanese', meaning: 'Tiếng Nhật', partOfSpeech: 'Noun' },
-          { word: 'every day', meaning: 'Mỗi ngày', partOfSpeech: 'Adverb' },
-        ]);
-      } else {
-        setTranslatedText('Tôi học tiếng Nhật mỗi ngày.');
-        setVocabBreakdown([
-          { word: 'học', meaning: 'Study', partOfSpeech: 'Động từ' },
-          { word: 'tiếng Nhật', meaning: 'Japanese', partOfSpeech: 'Danh từ' },
-          { word: 'mỗi ngày', meaning: 'Every day', partOfSpeech: 'Trạng từ' },
-        ]);
-      }
+
+    try {
+      const payload = await fetchJson<TranslateResponse>('/api/ai-translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: inputText.trim(),
+          sourceLang,
+          targetLang,
+        }),
+      });
+
+      setTranslatedText(payload.translatedText || '');
+      setVocabBreakdown(payload.isSentence ? payload.breakdown || [] : []);
+      setLastProvider(payload.provider || '');
+    } catch (error) {
+      setTranslateError(error instanceof Error ? error.message : 'Không thể dịch văn bản.');
+      setTranslatedText('');
+      setVocabBreakdown([]);
+      setLastProvider('');
+    } finally {
       setIsTranslating(false);
-    }, 1000);
+    }
   };
 
   const swapLanguages = () => {
@@ -84,6 +89,8 @@ export function TranslationPage() {
     setInputText('');
     setTranslatedText('');
     setVocabBreakdown([]);
+    setTranslateError('');
+    setLastProvider('');
   };
 
   const copyToClipboard = () => {
@@ -200,6 +207,12 @@ export function TranslationPage() {
             >
               {isTranslating ? 'Đang dịch...' : 'Dịch ngay'}
             </button>
+
+            {translateError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+                {translateError}
+              </div>
+            ) : null}
           </div>
 
           {/* Output Box */}
@@ -243,6 +256,12 @@ export function TranslationPage() {
                   <Plus className="w-4 h-4" />
                   Lưu vào thư viện
                 </button>
+
+                {lastProvider ? (
+                  <div className="w-full text-right text-xs text-gray-500 dark:text-gray-400">
+                    AI: {lastProvider}
+                  </div>
+                ) : null}
               </div>
             )}
           </div>
