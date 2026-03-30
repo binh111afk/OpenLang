@@ -27,6 +27,10 @@ interface UsernameLoginPayload {
   };
 }
 
+interface ProfileApiPayload {
+  profile: ProfileRow | null;
+}
+
 interface ProfileRow {
   id: string;
   username: string | null;
@@ -86,41 +90,28 @@ function mapUser(authUser: SupabaseUser, profile: ProfileRow | null): UserData {
   };
 }
 
-async function getProfileById(userId: string): Promise<ProfileRow | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, full_name, avatar_url, goal')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data as ProfileRow | null) ?? null;
-}
-
-async function upsertProfile(
-  userId: string,
-  payload: Partial<Pick<ProfileRow, 'username' | 'full_name' | 'avatar_url' | 'goal'>>,
-) {
-  const profilePayload = {
-    id: userId,
-    updated_at: new Date().toISOString(),
-    ...payload,
-  };
-
-  const { error } = await supabase
-    .from('profiles')
-    .upsert(profilePayload, { onConflict: 'id' });
-
-  if (error) {
-    throw new Error(error.message);
-  }
-}
-
 async function hydrateUser(authUser: SupabaseUser): Promise<UserData> {
-  const profile = await getProfileById(authUser.id);
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+
+  if (!token) {
+    return mapUser(authUser, null);
+  }
+
+  let profile: ProfileRow | null = null;
+
+  try {
+    const payload = await fetchJson<ProfileApiPayload>('/api/profile', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    profile = payload.profile;
+  } catch {
+    profile = null;
+  }
+
   return mapUser(authUser, profile);
 }
 
@@ -258,16 +249,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (data: { username: string; password: string; name: string; email: string }): Promise<AuthResult> => {
     const username = normalizeUsername(data.username);
 
-    const { data: existing, error: usernameError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username)
-      .limit(1);
-
-    if (!usernameError && Array.isArray(existing) && existing.length > 0) {
-      return { ok: false, error: 'Tên đăng nhập đã tồn tại.' };
-    }
-
     const { data: signUpData, error } = await supabase.auth.signUp({
       email: data.email.trim(),
       password: data.password,
@@ -291,20 +272,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       };
     }
 
-    try {
-      await upsertProfile(signedUser.id, {
-        username,
-        full_name: data.name.trim(),
-        avatar_url: null,
-        goal: 15,
-      });
-    } catch (profileError) {
-      return {
-        ok: false,
-        error: profileError instanceof Error ? profileError.message : 'Không thể lưu hồ sơ người dùng.',
-      };
-    }
-
     if (!signUpData.session) {
       const signInResult = await supabase.auth.signInWithPassword({
         email: data.email.trim(),
@@ -318,9 +285,53 @@ export function UserProvider({ children }: { children: ReactNode }) {
         };
       }
 
+      try {
+        const token = signInResult.data.session?.access_token;
+        if (token) {
+          await fetchJson<ProfileApiPayload>('/api/profile', {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              username,
+              fullName: data.name.trim(),
+              goal: 15,
+            }),
+          });
+        }
+      } catch (profileError) {
+        return {
+          ok: false,
+          error: profileError instanceof Error ? profileError.message : 'Không thể lưu hồ sơ người dùng.',
+        };
+      }
+
       const hydrated = await hydrateUser(signInResult.data.user);
       setUserState(hydrated);
       return { ok: true, name: hydrated.name };
+    }
+
+    try {
+      const token = signUpData.session.access_token;
+      await fetchJson<ProfileApiPayload>('/api/profile', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          fullName: data.name.trim(),
+          goal: 15,
+        }),
+      });
+    } catch (profileError) {
+      return {
+        ok: false,
+        error: profileError instanceof Error ? profileError.message : 'Không thể lưu hồ sơ người dùng.',
+      };
     }
 
     const hydrated = await hydrateUser(signedUser);
@@ -350,7 +361,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      await upsertProfile(user.id, { full_name: nextName });
+      const token = await getAccessToken();
+      if (!token) {
+        return { ok: false, error: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.' };
+      }
+
+      await fetchJson<ProfileApiPayload>('/api/profile', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fullName: nextName }),
+      });
+
       await supabase.auth.updateUser({
         data: {
           full_name: nextName,
@@ -376,7 +400,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const normalizedGoal = Math.max(1, Math.round(goal));
 
     try {
-      await upsertProfile(user.id, { goal: normalizedGoal });
+      const token = await getAccessToken();
+      if (!token) {
+        return { ok: false, error: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.' };
+      }
+
+      await fetchJson<ProfileApiPayload>('/api/profile', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ goal: normalizedGoal }),
+      });
+
       setUserState((prev) => (prev ? { ...prev, goal: normalizedGoal } : prev));
       return { ok: true };
     } catch (error) {
@@ -421,7 +458,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const avatarUrl = data.publicUrl;
 
     try {
-      await upsertProfile(user.id, { avatar_url: avatarUrl });
+      const token = await getAccessToken();
+      if (!token) {
+        return { ok: false, error: 'Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.' };
+      }
+
+      await fetchJson<ProfileApiPayload>('/api/profile', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ avatarUrl }),
+      });
+
       await supabase.auth.updateUser({
         data: {
           full_name: user.name,
@@ -437,7 +487,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         error: error instanceof Error ? error.message : 'Không thể cập nhật ảnh đại diện.',
       };
     }
-  }, [user]);
+  }, [user, getAccessToken]);
 
   const updatePassword = useCallback(async (nextPassword: string): Promise<AuthResult> => {
     const { error } = await supabase.auth.updateUser({
