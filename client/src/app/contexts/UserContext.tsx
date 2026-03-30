@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-import avatarImage from '../../assets/41f329b57dbad6c9a42f2a8cb17808ac046f48c9.png';
 import { createSupabaseBrowserClient } from '@/utils/supabase/client';
 import { fetchJson } from '@/utils/api';
 
@@ -63,6 +62,7 @@ interface UserContextType {
 }
 
 const supabase = createSupabaseBrowserClient();
+const DEFAULT_FB_AVATAR_URL = 'https://static.xx.fbcdn.net/rsrc.php/v3/yh/r/C5yt7Cqf3zU.jpg';
 
 function normalizeUsername(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, '_');
@@ -93,7 +93,7 @@ function mapUser(authUser: SupabaseUser, profile: ProfileRow | null): UserData {
     name: profile?.full_name || fullNameFromMeta || username,
     email,
     username,
-    avatar: profile?.avatar_url || avatarFromMeta || avatarImage,
+    avatar: profile?.avatar_url || avatarFromMeta || DEFAULT_FB_AVATAR_URL,
     goal: Number(profile?.goal || 15),
   };
 }
