@@ -43,6 +43,42 @@ function normalizeResult(result, isSentence) {
   };
 }
 
+function normalizeForMatch(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[\p{P}\p{S}]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function breakdownAlignsWithTranslatedText(translatedText, breakdown, targetLang) {
+  if (!Array.isArray(breakdown) || !breakdown.length) {
+    return false;
+  }
+
+  const normalizedTranslated = normalizeForMatch(translatedText);
+  if (!normalizedTranslated) {
+    return false;
+  }
+
+  return breakdown.every((item) => {
+    const word = String(item?.word || '').trim();
+    if (!word) {
+      return false;
+    }
+
+    if (targetLang === 'japanese') {
+      // For Japanese output, each chunk should appear in translated sentence exactly.
+      return String(translatedText).includes(word);
+    }
+
+    const normalizedWord = normalizeForMatch(word);
+    return Boolean(normalizedWord) && normalizedTranslated.includes(normalizedWord);
+  });
+}
+
 function buildPrompt({ text, sourceLang, targetLang, isSentence }) {
   return `
 You are a translation assistant for a language learning app.
@@ -68,12 +104,24 @@ Rules:
 - translatedText must be natural and accurate in target language.
 - If input is a sentence (${isSentence ? 'YES' : 'NO'}):
   - Provide useful sentence decomposition in breakdown.
+  - IMPORTANT: breakdown.word must be words/chunks taken directly from translatedText, not from source text.
   - breakdown items should follow the same order as words/chunks in translatedText when possible.
 - If input is NOT a sentence:
   - Set breakdown to [] exactly.
 - Keep meaning in Vietnamese for easier learning.
 - reading is required mainly for Japanese words; otherwise use empty string.
 - Do not add markdown or explanation outside JSON.
+`.trim();
+}
+
+function buildRetryPrompt(basePrompt) {
+  return `${basePrompt}
+
+IMPORTANT CORRECTION:
+- The previous breakdown was invalid.
+- Every breakdown.word MUST be copied from translatedText (exact word/chunk from translated sentence).
+- Never use source-language tokens in breakdown.word.
+- Return JSON only.
 `.trim();
 }
 
@@ -114,7 +162,7 @@ module.exports = async (req, res) => {
     const targetLang = String(payload.targetLang || '').trim();
     const isSentence = looksLikeSentence(text);
 
-    const { provider, result } = await generateAIJson(
+    let { provider, result } = await generateAIJson(
       buildPrompt({
         text,
         sourceLang,
@@ -123,11 +171,43 @@ module.exports = async (req, res) => {
       }),
     );
 
-    const normalized = normalizeResult(result, isSentence);
+    let normalized = normalizeResult(result, isSentence);
+
+    if (
+      isSentence &&
+      normalized.breakdown.length > 0 &&
+      !breakdownAlignsWithTranslatedText(normalized.translatedText, normalized.breakdown, targetLang)
+    ) {
+      const retried = await generateAIJson(
+        buildRetryPrompt(
+          buildPrompt({
+            text,
+            sourceLang,
+            targetLang,
+            isSentence,
+          }),
+        ),
+      );
+
+      provider = retried.provider;
+      result = retried.result;
+      normalized = normalizeResult(result, isSentence);
+    }
 
     if (!normalized.translatedText) {
       return sendJson(res, 422, {
         error: 'AI response is missing translated text.',
+        provider,
+      });
+    }
+
+    if (
+      isSentence &&
+      normalized.breakdown.length > 0 &&
+      !breakdownAlignsWithTranslatedText(normalized.translatedText, normalized.breakdown, targetLang)
+    ) {
+      return sendJson(res, 422, {
+        error: 'AI breakdown is not aligned with translated sentence.',
         provider,
       });
     }

@@ -276,7 +276,7 @@ export function TranslationPage() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Bóc Tách Câu</h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Phân tích từ vựng chi tiết</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Phân tích các từ/cụm trong câu đã dịch</p>
               </div>
             </div>
 
