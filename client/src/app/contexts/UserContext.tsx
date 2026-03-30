@@ -27,6 +27,14 @@ interface UsernameLoginPayload {
   };
 }
 
+interface RegisterPayload {
+  session?: {
+    access_token: string;
+    refresh_token: string;
+  };
+  requiresManualLogin?: boolean;
+}
+
 interface ProfileApiPayload {
   profile: ProfileRow | null;
 }
@@ -249,94 +257,48 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (data: { username: string; password: string; name: string; email: string }): Promise<AuthResult> => {
     const username = normalizeUsername(data.username);
 
-    const { data: signUpData, error } = await supabase.auth.signUp({
-      email: data.email.trim(),
-      password: data.password,
-      options: {
-        data: {
-          username,
-          full_name: data.name.trim(),
+    try {
+      const payload = await fetchJson<RegisterPayload>('/api/auth-register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      },
-    });
-
-    if (error) {
-      return { ok: false, error: error.message };
-    }
-
-    const signedUser = signUpData.user;
-    if (!signedUser) {
-      return {
-        ok: false,
-        error: 'Không tạo được tài khoản. Vui lòng thử lại.',
-      };
-    }
-
-    if (!signUpData.session) {
-      const signInResult = await supabase.auth.signInWithPassword({
-        email: data.email.trim(),
-        password: data.password,
+        body: JSON.stringify({
+          username,
+          password: data.password,
+          email: data.email.trim(),
+          fullName: data.name.trim(),
+        }),
       });
 
-      if (signInResult.error || !signInResult.data.user) {
+      if (!payload.session) {
         return {
           ok: true,
           name: data.name.trim(),
         };
       }
 
-      try {
-        const token = signInResult.data.session?.access_token;
-        if (token) {
-          await fetchJson<ProfileApiPayload>('/api/profile', {
-            method: 'PUT',
-            headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              username,
-              fullName: data.name.trim(),
-              goal: 15,
-            }),
-          });
-        }
-      } catch (profileError) {
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: payload.session.access_token,
+        refresh_token: payload.session.refresh_token,
+      });
+
+      if (sessionError || !sessionData.user) {
         return {
           ok: false,
-          error: profileError instanceof Error ? profileError.message : 'Không thể lưu hồ sơ người dùng.',
+          error: sessionError?.message || 'Không thể tạo phiên đăng nhập sau khi đăng ký.',
         };
       }
 
-      const hydrated = await hydrateUser(signInResult.data.user);
+      const hydrated = await hydrateUser(sessionData.user);
       setUserState(hydrated);
       return { ok: true, name: hydrated.name };
-    }
-
-    try {
-      const token = signUpData.session.access_token;
-      await fetchJson<ProfileApiPayload>('/api/profile', {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username,
-          fullName: data.name.trim(),
-          goal: 15,
-        }),
-      });
-    } catch (profileError) {
+    } catch (error) {
       return {
         ok: false,
-        error: profileError instanceof Error ? profileError.message : 'Không thể lưu hồ sơ người dùng.',
+        error: error instanceof Error ? error.message : 'Đăng ký thất bại.',
       };
     }
-
-    const hydrated = await hydrateUser(signedUser);
-    setUserState(hydrated);
-    return { ok: true, name: hydrated.name };
   }, []);
 
   const resetPassword = useCallback(async (email: string): Promise<AuthResult> => {

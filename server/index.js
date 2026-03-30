@@ -10,6 +10,7 @@ const flashcardImagesHandler = require("../api/flashcard-images.js");
 const libraryHandler = require("../api/library.js");
 const userProgressHandler = require("../api/user-progress.js");
 const authLoginHandler = require("../api/auth-login.js");
+const authRegisterHandler = require("../api/auth-register.js");
 const profileHandler = require("../api/profile.js");
 
 const port = process.env.PORT || 3001;
@@ -51,6 +52,10 @@ const server = http.createServer((req, res) => {
     return authLoginHandler(req, res);
   }
 
+  if (requestUrl.pathname === "/api/auth-register") {
+    return authRegisterHandler(req, res);
+  }
+
   if (requestUrl.pathname === "/api/profile") {
     return profileHandler(req, res);
   }
@@ -59,7 +64,7 @@ const server = http.createServer((req, res) => {
     message: "OpenLang server is running",
     method: req.method,
     url: req.url,
-    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images", "/api/user-progress", "/api/auth-login", "/api/profile", "/api/ai-generate-deck", "/api/ai-suggest-card"],
+    routes: ["/api/library", "/api/flashcards", "/api/flashcard-images", "/api/user-progress", "/api/auth-login", "/api/auth-register", "/api/profile", "/api/ai-generate-deck", "/api/ai-suggest-card"],
   });
 });
 
