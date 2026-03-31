@@ -132,7 +132,7 @@ END $$;
 create table if not exists public.user_progress (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  vocabulary_id uuid not null references public.vocabulary(id) on delete cascade,
+  vocabulary_id text not null,
   next_review timestamptz not null default now(),
   interval_days integer not null default 1 check (interval_days >= 0),
   ease_factor numeric(4,2) not null default 2.50 check (ease_factor >= 1.30 and ease_factor <= 3.00),
@@ -148,6 +148,34 @@ create table if not exists public.user_progress (
 
 create index if not exists user_progress_due_idx on public.user_progress(user_id, next_review);
 create index if not exists user_progress_status_idx on public.user_progress(user_id, status);
+
+DO $$
+DECLARE
+  v_vocab_id_type text;
+  v_progress_id_type text;
+BEGIN
+  SELECT data_type
+  INTO v_vocab_id_type
+  FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name = 'vocabulary' AND column_name = 'id';
+
+  SELECT data_type
+  INTO v_progress_id_type
+  FROM information_schema.columns
+  WHERE table_schema = 'public' AND table_name = 'user_progress' AND column_name = 'vocabulary_id';
+
+  IF v_vocab_id_type = v_progress_id_type THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conname = 'user_progress_vocabulary_id_fkey'
+        AND conrelid = 'public.user_progress'::regclass
+    ) THEN
+      ALTER TABLE public.user_progress
+      ADD CONSTRAINT user_progress_vocabulary_id_fkey
+      FOREIGN KEY (vocabulary_id) REFERENCES public.vocabulary(id) ON DELETE CASCADE;
+    END IF;
+  END IF;
+END $$;
 
 -- Daily stats for streak and analytics
 create table if not exists public.daily_stats (

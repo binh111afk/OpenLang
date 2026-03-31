@@ -128,7 +128,7 @@ module.exports = async (req, res) => {
 
       const { data, error } = await supabase
         .from('user_progress')
-        .select('vocabulary_id, next_review, interval_days, ease_factor, status, review_count, vocabulary:vocabulary_id(id, language, word, meaning, example_sentence, audio_url)')
+        .select('vocabulary_id, next_review, interval_days, ease_factor, status, review_count')
         .eq('user_id', user.id)
         .lte('next_review', new Date().toISOString())
         .order('next_review', { ascending: true })
