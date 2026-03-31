@@ -24,6 +24,7 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
 SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_DB_URL=your_supabase_postgres_connection_string
 PIXABAY_API_KEY=your_pixabay_api_key
 ```
 
@@ -41,10 +42,21 @@ Can co cac bang:
 - `public.vocabulary`
 - `public.flashcard_decks`
 - `public.flashcards`
+- `public.user_progress`
+- `public.daily_stats`
+- `public.weekly_leaderboard`
 
 Schema cho `flashcard_decks` va `flashcards` nam tai:
 
 - [flashcards-library-schema.sql](/c:/Users/Lenovo/Desktop/OpenLang/server/scripts/flashcards-library-schema.sql)
+
+Schema hoc tap (SRS, XP, leaderboard) nam tai:
+
+- [openlang-learning-schema.sql](/c:/Users/Lenovo/Desktop/OpenLang/server/scripts/openlang-learning-schema.sql)
+
+Build script tren Vercel se tu dong chay migration SQL truoc khi build frontend:
+
+- [run-db-migrations.cjs](/c:/Users/Lenovo/Desktop/OpenLang/scripts/run-db-migrations.cjs)
 
 ## 4. Redeploy
 
@@ -53,6 +65,7 @@ Sau khi cap nhat env:
 1. Redeploy project
 2. Mo domain Vercel
 3. Thu tao bo the moi trong `Library`
+4. Thu API SRS: `/api/srs-review`
 
 ## 5. Quick Checks
 

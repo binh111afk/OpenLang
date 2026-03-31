@@ -33,6 +33,25 @@ function runNpm(args) {
   }
 }
 
+function runNodeScript(scriptPath) {
+  const result = spawnSync("node", [scriptPath], {
+    stdio: "inherit",
+    shell: process.platform === "win32",
+    cwd,
+  });
+
+  if (result.error) {
+    console.error("Failed to execute node", scriptPath, result.error.message);
+    process.exit(1);
+  }
+
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
+runNodeScript(resolve(cwd, "scripts", "run-db-migrations.cjs"));
+
 // Ensure client devDependencies (vite, plugins) are available on Vercel.
 runNpm(["--prefix", clientDir, "install", "--include=dev"]);
 runNpm(["--prefix", clientDir, "run", "build"]);
