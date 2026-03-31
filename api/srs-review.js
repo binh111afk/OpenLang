@@ -1,11 +1,35 @@
 const { createSupabaseAdminClient } = require('./_lib/supabase');
 const { allowMethods, readJsonBody, sendJson, withCors } = require('./_lib/http');
+const { addDays, endOfLocalDayUtcISO, getLocalDateISO, getRecentDateRange, resolveTimeZone } = require('./_lib/datetime');
+const {
+  FREEZE_COST_XP,
+  computeStreakCheckin,
+  normalizeProfile,
+  purchaseFreeze,
+  shouldShowStreakPopup,
+} = require('./_lib/streak');
 
 const MIN_EASE = 1.3;
 const MAX_EASE = 3.0;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function readAction(req, payload) {
+  const rawQueryAction = Array.isArray(req.query?.action) ? req.query?.action[0] : req.query?.action;
+  const rawPayloadAction = payload?.action;
+  return String(rawPayloadAction || rawQueryAction || '').trim().toLowerCase();
+}
+
+function readMode(req) {
+  const raw = Array.isArray(req.query?.mode) ? req.query?.mode[0] : req.query?.mode;
+  return String(raw || '').trim().toLowerCase();
+}
+
+function readTimezone(req) {
+  const raw = req.headers?.['x-timezone'] || req.headers?.['X-Timezone'];
+  return resolveTimeZone(Array.isArray(raw) ? raw[0] : raw);
 }
 
 function readBearerToken(req) {
@@ -106,6 +130,166 @@ function xpFromQuality(quality) {
   return 18;
 }
 
+async function getProfileForUser(supabase, userId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, goal, total_xp, total_words_mastered, current_rank, current_streak, longest_streak, streak_freeze_count, last_study_date, last_streak_popup_date')
+    .eq('id', userId)
+    .maybeSingle();
+
+  if (error) {
+    return { profile: null, error };
+  }
+
+  return { profile: data || null, error: null };
+}
+
+async function upsertProfile(supabase, profilePatch) {
+  return supabase
+    .from('profiles')
+    .upsert(
+      {
+        ...profilePatch,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    );
+}
+
+async function getDashboardSummary({ supabase, userId, timeZone }) {
+  const now = new Date();
+  const todayIso = getLocalDateISO(now, timeZone);
+  const recentDates = getRecentDateRange(todayIso, 7);
+  const firstDate = recentDates[0];
+  const endOfTodayUtcIso = endOfLocalDayUtcISO(todayIso, timeZone);
+
+  const [{ profile, error: profileError }, statsResult, dueResult] = await Promise.all([
+    getProfileForUser(supabase, userId),
+    supabase
+      .from('daily_stats')
+      .select('study_date, xp_gained, words_reviewed')
+      .eq('user_id', userId)
+      .gte('study_date', firstDate)
+      .lte('study_date', todayIso),
+    supabase
+      .from('user_progress')
+      .select('vocabulary_id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .neq('status', 'mastered')
+      .lte('next_review', endOfTodayUtcIso),
+  ]);
+
+  if (profileError) {
+    return { error: profileError };
+  }
+
+  if (statsResult.error) {
+    return { error: statsResult.error };
+  }
+
+  if (dueResult.error) {
+    return { error: dueResult.error };
+  }
+
+  const statsMap = new Map((statsResult.data || []).map((row) => [row.study_date, row]));
+  const todayStats = statsMap.get(todayIso);
+  const safeGoal = Math.max(1, Number(profile?.goal || 15));
+  const reviewedToday = Number(todayStats?.words_reviewed || 0);
+  const dailyGoalProgressPercent = Math.min(100, Math.round((reviewedToday / safeGoal) * 100));
+  const dueTodayCount = Number(dueResult.count || 0);
+
+  const heatmap = recentDates.map((date) => {
+    const row = statsMap.get(date);
+    const xpGained = Number(row?.xp_gained || 0);
+    const wordsReviewed = Number(row?.words_reviewed || 0);
+    return {
+      date,
+      xpGained,
+      wordsReviewed,
+      studied: xpGained > 0 || wordsReviewed > 0,
+    };
+  });
+
+  const normalizedProfile = normalizeProfile(profile, userId);
+
+  const yesterdayIso = addDays(todayIso, -1);
+  const popupClaimedToday = shouldShowStreakPopup(normalizedProfile, todayIso);
+  const popupPendingLogin =
+    normalizedProfile.last_study_date === yesterdayIso &&
+    normalizedProfile.last_streak_popup_date !== todayIso;
+
+  return {
+    error: null,
+    summary: {
+      heatmap,
+      dueTodayCount,
+      dailyGoal: {
+        current: reviewedToday,
+        goal: safeGoal,
+        progressPercent: dailyGoalProgressPercent,
+      },
+      streak: {
+        current: normalizedProfile.current_streak,
+        longest: normalizedProfile.longest_streak,
+        freezeCount: normalizedProfile.streak_freeze_count,
+        lastStudyDate: normalizedProfile.last_study_date,
+      },
+      totalWordsMastered: normalizedProfile.total_words_mastered,
+      popup: {
+        show: popupClaimedToday || popupPendingLogin,
+        streakDelta: 1,
+        pending: popupPendingLogin,
+      },
+      timezone: timeZone,
+      today: todayIso,
+    },
+  };
+}
+
+async function handlePurchaseFreeze({ supabase, userId, quantity }) {
+  const { profile, error } = await getProfileForUser(supabase, userId);
+  if (error) {
+    return { status: 500, body: { error: error.message } };
+  }
+
+  const normalizedProfile = normalizeProfile(profile, userId);
+  const result = purchaseFreeze(normalizedProfile, quantity);
+
+  if (!result.ok) {
+    return {
+      status: 400,
+      body: {
+        error: result.error,
+        costXp: result.totalCost,
+        currentXp: result.currentXp,
+      },
+    };
+  }
+
+  const nextRank = rankFromXp(result.nextProfile.total_xp);
+  const { error: saveError } = await upsertProfile(supabase, {
+    id: userId,
+    total_xp: result.nextProfile.total_xp,
+    current_rank: nextRank,
+    streak_freeze_count: result.nextProfile.streak_freeze_count,
+  });
+
+  if (saveError) {
+    return { status: 500, body: { error: saveError.message } };
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      freezeCount: result.nextProfile.streak_freeze_count,
+      totalXp: result.nextProfile.total_xp,
+      costXp: result.totalCost,
+      currentRank: nextRank,
+    },
+  };
+}
+
 module.exports = async (req, res) => {
   if (withCors(req, res)) {
     return;
@@ -123,7 +307,25 @@ module.exports = async (req, res) => {
       return sendJson(res, 401, { error: authError || 'Unauthorized.' });
     }
 
+    const timeZone = readTimezone(req);
+
     if (req.method === 'GET') {
+      const mode = readMode(req);
+
+      if (mode === 'dashboard') {
+        const { summary, error } = await getDashboardSummary({
+          supabase,
+          userId: user.id,
+          timeZone,
+        });
+
+        if (error) {
+          return sendJson(res, 500, { error: error.message });
+        }
+
+        return sendJson(res, 200, summary);
+      }
+
       const limit = Math.max(1, Math.min(100, Number(req.query?.limit) || 20));
 
       const { data, error } = await supabase
@@ -144,6 +346,31 @@ module.exports = async (req, res) => {
     }
 
     const payload = await readJsonBody(req);
+    const action = readAction(req, payload);
+
+    if (action === 'purchase_freeze') {
+      const result = await handlePurchaseFreeze({
+        supabase,
+        userId: user.id,
+        quantity: payload.quantity,
+      });
+      return sendJson(res, result.status, result.body);
+    }
+
+    if (action === 'ack_popup') {
+      const todayIso = getLocalDateISO(new Date(), timeZone);
+      const { error: ackError } = await upsertProfile(supabase, {
+        id: user.id,
+        last_streak_popup_date: todayIso,
+      });
+
+      if (ackError) {
+        return sendJson(res, 500, { error: ackError.message });
+      }
+
+      return sendJson(res, 200, { ok: true });
+    }
+
     const vocabularyId = payload.vocabularyId;
     const quality = Math.max(0, Math.min(5, Math.round(Number(payload.quality))));
 
@@ -190,48 +417,56 @@ module.exports = async (req, res) => {
     const xpGained = xpFromQuality(quality);
     const newlyMastered = previousStatus !== 'mastered' && computed.status === 'mastered' ? 1 : 0;
 
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, total_xp, total_words_mastered')
-      .eq('id', user.id)
-      .maybeSingle();
+    const { profile, error: profileError } = await getProfileForUser(supabase, user.id);
 
     if (profileError) {
       return sendJson(res, 500, { error: profileError.message });
     }
 
-    const nextTotalXp = Number(profile?.total_xp || 0) + xpGained;
-    const nextMastered = Number(profile?.total_words_mastered || 0) + newlyMastered;
-    const nextRank = rankFromXp(nextTotalXp);
+    const normalizedProfile = normalizeProfile(profile, user.id);
 
-    const { error: profileUpsertError } = await supabase
-      .from('profiles')
-      .upsert(
-        {
-          id: user.id,
-          total_xp: nextTotalXp,
-          total_words_mastered: nextMastered,
-          current_rank: nextRank,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' },
-      );
-
-    if (profileUpsertError) {
-      return sendJson(res, 500, { error: profileUpsertError.message });
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
+    const localToday = getLocalDateISO(new Date(), timeZone);
 
     const { data: todayStats, error: statsError } = await supabase
       .from('daily_stats')
       .select('id, xp_gained, words_reviewed, words_mastered, study_minutes, created_at')
       .eq('user_id', user.id)
-      .eq('study_date', today)
+      .eq('study_date', localToday)
       .maybeSingle();
 
     if (statsError) {
       return sendJson(res, 500, { error: statsError.message });
+    }
+
+    const firstLessonToday = !todayStats || Number(todayStats.words_reviewed || 0) === 0;
+    const streakTransition = firstLessonToday
+      ? computeStreakCheckin(normalizedProfile, localToday)
+      : {
+          nextProfile: normalizedProfile,
+          changed: false,
+          usedFreeze: false,
+          streakDelta: 0,
+          reset: false,
+        };
+
+    const nextTotalXp = Number(streakTransition.nextProfile.total_xp || 0) + xpGained;
+    const nextMastered = Number(streakTransition.nextProfile.total_words_mastered || 0) + newlyMastered;
+    const nextRank = rankFromXp(nextTotalXp);
+
+    const { error: profileUpsertError } = await upsertProfile(supabase, {
+      id: user.id,
+      total_xp: nextTotalXp,
+      total_words_mastered: nextMastered,
+      current_rank: nextRank,
+      current_streak: streakTransition.nextProfile.current_streak,
+      longest_streak: streakTransition.nextProfile.longest_streak,
+      streak_freeze_count: streakTransition.nextProfile.streak_freeze_count,
+      last_study_date: streakTransition.nextProfile.last_study_date,
+      last_streak_popup_date: streakTransition.nextProfile.last_streak_popup_date,
+    });
+
+    if (profileUpsertError) {
+      return sendJson(res, 500, { error: profileUpsertError.message });
     }
 
     const { error: statsUpsertError } = await supabase
@@ -239,7 +474,7 @@ module.exports = async (req, res) => {
       .upsert(
         {
           user_id: user.id,
-          study_date: today,
+          study_date: localToday,
           xp_gained: Number(todayStats?.xp_gained || 0) + xpGained,
           words_reviewed: Number(todayStats?.words_reviewed || 0) + 1,
           words_mastered: Number(todayStats?.words_mastered || 0) + newlyMastered,
@@ -256,6 +491,17 @@ module.exports = async (req, res) => {
 
     return sendJson(res, 200, {
       progress: savedProgress,
+      streak: {
+        current: streakTransition.nextProfile.current_streak,
+        longest: streakTransition.nextProfile.longest_streak,
+        freezeCount: streakTransition.nextProfile.streak_freeze_count,
+        usedFreeze: streakTransition.usedFreeze,
+        reset: streakTransition.reset,
+      },
+      popup: {
+        show: streakTransition.changed && streakTransition.streakDelta > 0,
+        streakDelta: streakTransition.streakDelta,
+      },
       reward: {
         xpGained,
         totalXp: nextTotalXp,

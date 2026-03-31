@@ -25,6 +25,11 @@ create table if not exists public.profiles (
   total_xp bigint not null default 0,
   current_rank text not null default 'Bronze',
   total_words_mastered integer not null default 0,
+  current_streak integer not null default 0,
+  longest_streak integer not null default 0,
+  streak_freeze_count integer not null default 0,
+  last_study_date date,
+  last_streak_popup_date date,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
@@ -33,6 +38,11 @@ alter table public.profiles
   add column if not exists total_xp bigint not null default 0,
   add column if not exists current_rank text not null default 'Bronze',
   add column if not exists total_words_mastered integer not null default 0,
+  add column if not exists current_streak integer not null default 0,
+  add column if not exists longest_streak integer not null default 0,
+  add column if not exists streak_freeze_count integer not null default 0,
+  add column if not exists last_study_date date,
+  add column if not exists last_streak_popup_date date,
   add column if not exists created_at timestamptz not null default now();
 
 create index if not exists profiles_total_xp_idx on public.profiles(total_xp desc);

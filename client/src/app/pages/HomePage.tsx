@@ -2,15 +2,90 @@ import { WordsLearnedCard, StreakCard, DailyGoalCard } from '../components/Stats
 import { VocabularyCard } from '../components/VocabularyCard';
 import { AnimatedPage } from '../components/AnimatedPage';
 import { Play, TrendingUp, BookOpen, LogIn } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
 import { AuthModal } from '../components/AuthModal';
+import { acknowledgeStreakPopup, fetchDashboardSummary, type DashboardSummary } from '@/utils/dashboard';
+import { StreakGainPopup } from '../components/StreakGainPopup';
 
 export function HomePage() {
   const { learningLanguages } = useLanguage();
-  const { user, isLoggedIn } = useUser();
+  const { user, isLoggedIn, getAccessToken } = useUser();
   const [authOpen, setAuthOpen] = useState(false);
+  const [dashboard, setDashboard] = useState<DashboardSummary | null>(null);
+  const [showStreakPopup, setShowStreakPopup] = useState(false);
+  const [popupDelta, setPopupDelta] = useState(0);
+  const [popupPending, setPopupPending] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadDashboard() {
+      if (!isLoggedIn) {
+        if (mounted) {
+          setDashboard(null);
+        }
+        return;
+      }
+
+      const token = await getAccessToken();
+      if (!token || !mounted) {
+        return;
+      }
+
+      try {
+        const summary = await fetchDashboardSummary(token);
+        if (!mounted) {
+          return;
+        }
+
+        setDashboard(summary);
+
+        if (summary.popup?.show) {
+          setPopupDelta(Math.max(1, Number(summary.popup.streakDelta || 1)));
+          setPopupPending(Boolean(summary.popup.pending));
+          setShowStreakPopup(true);
+        }
+      } catch {
+        if (mounted) {
+          setDashboard(null);
+        }
+      }
+    }
+
+    void loadDashboard();
+
+    return () => {
+      mounted = false;
+    };
+  }, [getAccessToken, isLoggedIn]);
+
+  const weeklyGain = useMemo(() => {
+    if (!dashboard?.heatmap?.length) {
+      return 0;
+    }
+    return dashboard.heatmap.reduce((sum, day) => sum + Number(day.wordsReviewed || 0), 0);
+  }, [dashboard]);
+
+  const closeStreakPopup = async () => {
+    setShowStreakPopup(false);
+
+    if (!isLoggedIn) {
+      return;
+    }
+
+    const token = await getAccessToken();
+    if (!token) {
+      return;
+    }
+
+    try {
+      await acknowledgeStreakPopup(token);
+    } catch {
+      // no-op
+    }
+  };
 
   // Get first name for greeting
   const firstName = user ? (user.name.split(' ').pop() || user.name) : '';
@@ -102,10 +177,30 @@ export function HomePage() {
 
         {/* Stats & Daily Goal Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <WordsLearnedCard />
-          <StreakCard />
-          <DailyGoalCard current={8} goal={user?.goal ?? 15} />
+          <WordsLearnedCard
+            totalWords={dashboard?.totalWordsMastered ?? 0}
+            weeklyGain={weeklyGain}
+          />
+          <StreakCard
+            currentStreak={dashboard?.streak.current ?? 0}
+            longestStreak={dashboard?.streak.longest ?? 0}
+            heatmap={dashboard?.heatmap ?? []}
+          />
+          <DailyGoalCard
+            current={dashboard?.dailyGoal.current ?? 0}
+            goal={dashboard?.dailyGoal.goal ?? (user?.goal ?? 15)}
+          />
         </div>
+
+        {isLoggedIn && (
+          <div className="rounded-2xl border border-purple-200 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm dark:border-purple-800 dark:bg-gray-900 dark:text-gray-200">
+            <span className="font-semibold text-purple-600 dark:text-purple-400">Hôm nay cần ôn:</span>{' '}
+            {dashboard?.dueTodayCount ?? 0} từ ·
+            <span className="ml-2 font-semibold text-emerald-600 dark:text-emerald-400">
+              Mục tiêu: {dashboard?.dailyGoal.progressPercent ?? 0}%
+            </span>
+          </div>
+        )}
 
         {/* Start Learning Button */}
         <button className="w-full bg-gradient-to-r from-purple-600 via-purple-500 to-violet-600 text-white py-6 px-8 rounded-3xl shadow-lg shadow-purple-300 dark:shadow-purple-900 hover:shadow-xl hover:shadow-purple-400 dark:hover:shadow-purple-800 transition-all duration-300 flex items-center justify-center gap-4 group">
@@ -150,6 +245,15 @@ export function HomePage() {
         <div className="h-8"></div>
       </div>
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
+      <StreakGainPopup
+        isOpen={showStreakPopup}
+        streakDelta={popupDelta}
+        pending={popupPending}
+        currentStreak={dashboard?.streak.current ?? 0}
+        onClose={() => {
+          void closeStreakPopup();
+        }}
+      />
     </AnimatedPage>
   );
 }

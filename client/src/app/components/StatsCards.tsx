@@ -1,6 +1,11 @@
 import { useId } from 'react';
 import { Check, Trophy, Flame } from 'lucide-react';
 
+interface HeatmapDay {
+  date: string;
+  studied: boolean;
+}
+
 // ─── Shared: decorative background pattern ────────────────────────────────
 function CardPattern({ variant = 'circles', uid }: { variant?: 'circles' | 'dots' | 'lines'; uid: string }) {
   if (variant === 'dots') {
@@ -78,7 +83,7 @@ function Sparkline({ data, uid }: { data: number[]; uid: string }) {
   );
 }
 
-export function WordsLearnedCard() {
+export function WordsLearnedCard({ totalWords = 243, weeklyGain = 0 }: { totalWords?: number; weeklyGain?: number }) {
   const uid = useId().replace(/:/g, '');
   return (
     <div className="relative bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-6 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
@@ -89,8 +94,8 @@ export function WordsLearnedCard() {
           <div>
             <p className="text-xs font-semibold text-purple-500 dark:text-purple-400 uppercase tracking-widest mb-1">Từ Đã Học</p>
             <div className="flex items-end gap-2">
-              <p className="text-4xl font-bold text-gray-800 dark:text-gray-100 leading-none">243</p>
-              <span className="text-xs font-semibold text-emerald-500 mb-1">↑ +18 tuần này</span>
+              <p className="text-4xl font-bold text-gray-800 dark:text-gray-100 leading-none">{totalWords}</p>
+              <span className="text-xs font-semibold text-emerald-500 mb-1">↑ +{Math.max(0, weeklyGain)} tuần này</span>
             </div>
           </div>
           <div className="p-3 bg-gradient-to-br from-purple-500 to-violet-600 rounded-2xl shadow-lg shadow-purple-200 dark:shadow-purple-900 group-hover:scale-105 transition-transform">
@@ -126,8 +131,25 @@ const WEEK_DAYS = [
   { short: 'CN', done: false },
 ];
 
-export function StreakCard() {
+export function StreakCard({
+  currentStreak = 0,
+  longestStreak = 0,
+  heatmap = [],
+}: {
+  currentStreak?: number;
+  longestStreak?: number;
+  heatmap?: HeatmapDay[];
+}) {
   const uid = useId().replace(/:/g, '');
+  const weekDays = heatmap.length === 7
+    ? heatmap.map((day, index) => ({
+        short: ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][index],
+        done: Boolean(day.studied),
+      }))
+    : WEEK_DAYS;
+
+  const weeklyCount = weekDays.filter((day) => day.done).length;
+
   return (
     <div className="relative bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-6 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
       <CardPattern variant="dots" uid={uid} />
@@ -137,7 +159,7 @@ export function StreakCard() {
           <div>
             <p className="text-xs font-semibold text-purple-500 dark:text-purple-400 uppercase tracking-widest mb-1">Chuỗi Học Tập</p>
             <div className="flex items-end gap-2">
-              <p className="text-4xl font-bold text-gray-800 dark:text-gray-100 leading-none">12</p>
+              <p className="text-4xl font-bold text-gray-800 dark:text-gray-100 leading-none">{currentStreak}</p>
               <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-0.5">ngày</span>
             </div>
           </div>
@@ -149,7 +171,7 @@ export function StreakCard() {
         <div className="w-full h-px bg-purple-100 dark:bg-purple-800/50 mb-4" />
 
         <div className="flex items-end justify-between gap-1">
-          {WEEK_DAYS.map((day) => (
+          {weekDays.map((day) => (
             <div key={day.short} className="flex flex-col items-center gap-1.5 flex-1">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
@@ -173,8 +195,8 @@ export function StreakCard() {
 
         <div className="mt-3 pt-3 border-t border-purple-100 dark:border-purple-800/50">
           <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            <span className="text-purple-600 dark:text-purple-400 font-semibold">3/7</span> ngày tuần này · Kỷ lục:{' '}
-            <span className="text-purple-600 dark:text-purple-400 font-semibold">28 ngày</span>
+            <span className="text-purple-600 dark:text-purple-400 font-semibold">{weeklyCount}/7</span> ngày tuần này · Kỷ lục:{' '}
+            <span className="text-purple-600 dark:text-purple-400 font-semibold">{longestStreak} ngày</span>
           </p>
         </div>
       </div>
