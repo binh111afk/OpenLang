@@ -7,6 +7,14 @@
       "handle": "filesystem"
     },
     {
+      "src": "/api/auth-login",
+      "dest": "/api/auth?action=login"
+    },
+    {
+      "src": "/api/auth-register",
+      "dest": "/api/auth?action=register"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/api/$1"
     },
