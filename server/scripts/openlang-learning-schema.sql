@@ -51,8 +51,82 @@ create table if not exists public.vocabulary (
   constraint vocabulary_language_word_unique unique (language, word)
 );
 
-create index if not exists vocabulary_language_idx on public.vocabulary(language);
-create index if not exists vocabulary_word_idx on public.vocabulary(word);
+alter table public.vocabulary
+  add column if not exists id uuid default gen_random_uuid(),
+  add column if not exists language public.language_code,
+  add column if not exists meaning text,
+  add column if not exists example_sentence text,
+  add column if not exists audio_url text,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+DO $$
+BEGIN
+  -- Backfill safe defaults for legacy rows.
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'vocabulary' AND column_name = 'language'
+  ) THEN
+    UPDATE public.vocabulary
+    SET language = 'english'
+    WHERE language IS NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'vocabulary' AND column_name = 'meaning'
+  ) THEN
+    UPDATE public.vocabulary
+    SET meaning = ''
+    WHERE meaning IS NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'vocabulary' AND column_name = 'language'
+  ) THEN
+    ALTER TABLE public.vocabulary
+      ALTER COLUMN language SET DEFAULT 'english',
+      ALTER COLUMN language SET NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'vocabulary' AND column_name = 'id'
+  ) THEN
+    CREATE UNIQUE INDEX IF NOT EXISTS vocabulary_id_uidx ON public.vocabulary(id);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'vocabulary' AND column_name = 'meaning'
+  ) THEN
+    ALTER TABLE public.vocabulary
+      ALTER COLUMN meaning SET DEFAULT '',
+      ALTER COLUMN meaning SET NOT NULL;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'vocabulary' AND column_name = 'language'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS vocabulary_language_idx ON public.vocabulary(language);
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'vocabulary' AND column_name = 'word'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS vocabulary_word_idx ON public.vocabulary(word);
+  END IF;
+END $$;
 
 -- Per-user SRS state for each vocabulary item
 create table if not exists public.user_progress (
