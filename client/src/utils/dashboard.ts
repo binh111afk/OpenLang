@@ -69,3 +69,25 @@ export async function purchaseStreakFreeze(token: string, quantity = 1) {
     body: JSON.stringify({ action: 'purchase_freeze', quantity }),
   });
 }
+
+export async function manualStreakCheckin(token: string) {
+  return fetchJson<{
+    ok: boolean;
+    alreadyCheckedIn: boolean;
+    streak: {
+      current: number;
+      longest: number;
+      freezeCount: number;
+      usedFreeze: boolean;
+      reset: boolean;
+    };
+    popup: {
+      show: boolean;
+      streakDelta: number;
+    };
+  }>('/api/srs-review', {
+    method: 'POST',
+    headers: createAuthHeaders(token),
+    body: JSON.stringify({ action: 'manual_checkin' }),
+  });
+}

@@ -290,6 +290,83 @@ async function handlePurchaseFreeze({ supabase, userId, quantity }) {
   };
 }
 
+async function handleManualCheckin({ supabase, userId, timeZone }) {
+  const todayIso = getLocalDateISO(new Date(), timeZone);
+  const { profile, error: profileError } = await getProfileForUser(supabase, userId);
+
+  if (profileError) {
+    return { status: 500, body: { error: profileError.message } };
+  }
+
+  const normalized = normalizeProfile(profile, userId);
+  const transition = computeStreakCheckin(normalized, todayIso);
+
+  if (transition.changed) {
+    const { error: profileUpsertError } = await upsertProfile(supabase, {
+      id: userId,
+      current_streak: transition.nextProfile.current_streak,
+      longest_streak: transition.nextProfile.longest_streak,
+      streak_freeze_count: transition.nextProfile.streak_freeze_count,
+      last_study_date: transition.nextProfile.last_study_date,
+      last_streak_popup_date: transition.nextProfile.last_streak_popup_date,
+    });
+
+    if (profileUpsertError) {
+      return { status: 500, body: { error: profileUpsertError.message } };
+    }
+  }
+
+  const { data: todayStats, error: statsError } = await supabase
+    .from('daily_stats')
+    .select('created_at, xp_gained, words_reviewed, words_mastered, study_minutes')
+    .eq('user_id', userId)
+    .eq('study_date', todayIso)
+    .maybeSingle();
+
+  if (statsError) {
+    return { status: 500, body: { error: statsError.message } };
+  }
+
+  const { error: statsUpsertError } = await supabase
+    .from('daily_stats')
+    .upsert(
+      {
+        user_id: userId,
+        study_date: todayIso,
+        xp_gained: Number(todayStats?.xp_gained || 0),
+        words_reviewed: Number(todayStats?.words_reviewed || 0),
+        words_mastered: Number(todayStats?.words_mastered || 0),
+        study_minutes: Number(todayStats?.study_minutes || 0),
+        updated_at: new Date().toISOString(),
+        created_at: todayStats?.created_at || new Date().toISOString(),
+      },
+      { onConflict: 'user_id,study_date' },
+    );
+
+  if (statsUpsertError) {
+    return { status: 500, body: { error: statsUpsertError.message } };
+  }
+
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      alreadyCheckedIn: !transition.changed,
+      streak: {
+        current: transition.nextProfile.current_streak,
+        longest: transition.nextProfile.longest_streak,
+        freezeCount: transition.nextProfile.streak_freeze_count,
+        usedFreeze: transition.usedFreeze,
+        reset: transition.reset,
+      },
+      popup: {
+        show: transition.changed && transition.streakDelta > 0,
+        streakDelta: transition.streakDelta,
+      },
+    },
+  };
+}
+
 module.exports = async (req, res) => {
   if (withCors(req, res)) {
     return;
@@ -353,6 +430,15 @@ module.exports = async (req, res) => {
         supabase,
         userId: user.id,
         quantity: payload.quantity,
+      });
+      return sendJson(res, result.status, result.body);
+    }
+
+    if (action === 'manual_checkin') {
+      const result = await handleManualCheckin({
+        supabase,
+        userId: user.id,
+        timeZone,
       });
       return sendJson(res, result.status, result.body);
     }

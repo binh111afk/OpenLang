@@ -135,10 +135,14 @@ export function StreakCard({
   currentStreak = 0,
   longestStreak = 0,
   heatmap = [],
+  onClick,
+  disabled = false,
 }: {
   currentStreak?: number;
   longestStreak?: number;
   heatmap?: HeatmapDay[];
+  onClick?: () => void;
+  disabled?: boolean;
 }) {
   const uid = useId().replace(/:/g, '');
   const weekDays = heatmap.length === 7
@@ -151,7 +155,22 @@ export function StreakCard({
   const weeklyCount = weekDays.filter((day) => day.done).length;
 
   return (
-    <div className="relative bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-6 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden group">
+    <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={disabled ? undefined : onClick}
+      onKeyDown={(event) => {
+        if (!onClick || disabled) {
+          return;
+        }
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onClick();
+        }
+      }}
+      className={`relative bg-white dark:bg-gray-900 rounded-3xl border-2 border-purple-200 dark:border-purple-800 p-6 shadow-sm transition-all duration-300 overflow-hidden group ${onClick ? 'cursor-pointer hover:shadow-lg active:scale-[0.995]' : ''} ${disabled ? 'opacity-70 pointer-events-none' : ''}`}
+      title={onClick ? 'Bấm để điểm danh hôm nay' : undefined}
+    >
       <CardPattern variant="dots" uid={uid} />
 
       <div className="relative z-10">

@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useUser } from '../contexts/UserContext';
 import { AuthModal } from '../components/AuthModal';
-import { acknowledgeStreakPopup, fetchDashboardSummary, type DashboardSummary } from '@/utils/dashboard';
+import { acknowledgeStreakPopup, fetchDashboardSummary, manualStreakCheckin, type DashboardSummary } from '@/utils/dashboard';
 import { StreakGainPopup } from '../components/StreakGainPopup';
 
 export function HomePage() {
@@ -17,6 +17,32 @@ export function HomePage() {
   const [showStreakPopup, setShowStreakPopup] = useState(false);
   const [popupDelta, setPopupDelta] = useState(0);
   const [popupPending, setPopupPending] = useState(false);
+  const [checkingIn, setCheckingIn] = useState(false);
+
+  const refreshDashboard = async () => {
+    if (!isLoggedIn) {
+      setDashboard(null);
+      return;
+    }
+
+    const token = await getAccessToken();
+    if (!token) {
+      return;
+    }
+
+    try {
+      const summary = await fetchDashboardSummary(token);
+      setDashboard(summary);
+
+      if (summary.popup?.show) {
+        setPopupDelta(Math.max(1, Number(summary.popup.streakDelta || 1)));
+        setPopupPending(Boolean(summary.popup.pending));
+        setShowStreakPopup(true);
+      }
+    } catch {
+      setDashboard(null);
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -29,23 +55,10 @@ export function HomePage() {
         return;
       }
 
-      const token = await getAccessToken();
-      if (!token || !mounted) {
-        return;
-      }
-
       try {
-        const summary = await fetchDashboardSummary(token);
+        await refreshDashboard();
         if (!mounted) {
           return;
-        }
-
-        setDashboard(summary);
-
-        if (summary.popup?.show) {
-          setPopupDelta(Math.max(1, Number(summary.popup.streakDelta || 1)));
-          setPopupPending(Boolean(summary.popup.pending));
-          setShowStreakPopup(true);
         }
       } catch {
         if (mounted) {
@@ -84,6 +97,37 @@ export function HomePage() {
       await acknowledgeStreakPopup(token);
     } catch {
       // no-op
+    }
+  };
+
+  const handleManualCheckin = async () => {
+    if (!isLoggedIn) {
+      setAuthOpen(true);
+      return;
+    }
+
+    if (checkingIn) {
+      return;
+    }
+
+    const token = await getAccessToken();
+    if (!token) {
+      return;
+    }
+
+    try {
+      setCheckingIn(true);
+      const result = await manualStreakCheckin(token);
+
+      if (result.popup?.show) {
+        setPopupDelta(Math.max(1, Number(result.popup.streakDelta || 1)));
+        setPopupPending(false);
+        setShowStreakPopup(true);
+      }
+
+      await refreshDashboard();
+    } finally {
+      setCheckingIn(false);
     }
   };
 
@@ -185,6 +229,8 @@ export function HomePage() {
             currentStreak={dashboard?.streak.current ?? 0}
             longestStreak={dashboard?.streak.longest ?? 0}
             heatmap={dashboard?.heatmap ?? []}
+            onClick={handleManualCheckin}
+            disabled={checkingIn}
           />
           <DailyGoalCard
             current={dashboard?.dailyGoal.current ?? 0}
