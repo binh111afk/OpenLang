@@ -26,6 +26,30 @@ function getDatabaseUrl() {
   );
 }
 
+function normalizeSslMode(databaseUrl) {
+  const sslModeOverride = String(process.env.DB_MIGRATION_SSLMODE || '').trim();
+
+  try {
+    const parsed = new URL(databaseUrl);
+
+    if (sslModeOverride) {
+      parsed.searchParams.set('sslmode', sslModeOverride);
+      return parsed.toString();
+    }
+
+    const currentMode = (parsed.searchParams.get('sslmode') || '').toLowerCase();
+
+    if (!currentMode || currentMode === 'prefer' || currentMode === 'require' || currentMode === 'verify-ca') {
+      parsed.searchParams.set('sslmode', 'no-verify');
+      return parsed.toString();
+    }
+
+    return parsed.toString();
+  } catch {
+    return databaseUrl;
+  }
+}
+
 function shouldEnforceMigration() {
   return String(process.env.VERCEL || '').toLowerCase() === '1' ||
     String(process.env.CI || '').toLowerCase() === 'true';
@@ -43,7 +67,8 @@ async function runSqlFile(client, filePath) {
 }
 
 async function main() {
-  const databaseUrl = getDatabaseUrl();
+  const rawDatabaseUrl = getDatabaseUrl();
+  const databaseUrl = normalizeSslMode(rawDatabaseUrl);
 
   if (!databaseUrl) {
     const message =

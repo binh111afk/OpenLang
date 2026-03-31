@@ -28,6 +28,12 @@ SUPABASE_DB_URL=your_supabase_postgres_connection_string
 PIXABAY_API_KEY=your_pixabay_api_key
 ```
 
+Tuy chon (neu can custom SSL cho migration):
+
+```env
+DB_MIGRATION_SSLMODE=no-verify
+```
+
 Neu frontend va API cung nam trong cung mot Vercel project thi:
 
 - khong can `VITE_API_BASE_URL`
